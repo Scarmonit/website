@@ -12,37 +12,54 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parker - About Me</title>
     <style>
+        /* Mobile-first CSS reset and base styles */
         * {
             box-sizing: border-box;
+        }
+        
+        :root {
+            /* CSS custom properties for consistent mobile spacing */
+            --mobile-padding: 4vw;
+            --desktop-padding: 20px;
+            --touch-target: 44px;
+            --border-radius: clamp(4px, 1vw, 8px);
         }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
             margin: 0;
-            padding: 20px;
-            max-width: 900px;
+            /* Mobile-first padding using viewport units */
+            padding: var(--mobile-padding);
+            max-width: min(900px, 95vw);
             margin: 0 auto;
             background-color: #f8f9fa;
             color: #212529;
+            /* Fluid font size for better mobile readability */
+            font-size: clamp(14px, 4vw, 16px);
         }
 
         .container {
             background-color: white;
-            border-radius: 8px;
+            border-radius: var(--border-radius);
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             overflow: hidden;
+            /* Ensure full width on very small screens */
+            min-width: 0;
         }
         
         header {
             background-color: #343a40;
             color: white;
-            padding: 15px 20px;
+            /* Mobile-optimized padding with better touch spacing */
+            padding: clamp(12px, 3vw, 20px);
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: clamp(10px, 3vw, 15px);
+            /* Better mobile header stacking */
+            flex-direction: column;
         }
         
         nav ul {
@@ -50,17 +67,29 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
             padding: 0;
             margin: 0;
             display: flex;
-            gap: 20px;
+            gap: clamp(8px, 2vw, 20px);
             flex-wrap: wrap;
+            /* Center navigation on mobile */
+            justify-content: center;
+            width: 100%;
         }
         
         nav a {
             text-decoration: none;
             color: #adb5bd;
             font-weight: 500;
-            padding: 8px 12px;
-            border-radius: 4px;
+            /* Enhanced touch targets for mobile */
+            padding: clamp(12px, 3vw, 12px) clamp(16px, 4vw, 18px);
+            border-radius: var(--border-radius);
             transition: all 0.3s ease;
+            /* Minimum touch target size */
+            min-height: var(--touch-target);
+            min-width: var(--touch-target);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Better text sizing for mobile */
+            font-size: clamp(14px, 3.5vw, 16px);
         }
         
         nav a:hover,
@@ -80,13 +109,19 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
             background-color: #dc3545;
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            /* Enhanced mobile touch target */
+            padding: clamp(12px, 3vw, 12px) clamp(20px, 5vw, 24px);
+            border-radius: var(--border-radius);
             cursor: pointer;
-            font-size: 14px;
+            font-size: clamp(14px, 3.5vw, 16px);
             text-decoration: none;
             font-weight: 500;
             transition: background-color 0.3s ease;
+            /* Ensure proper touch target */
+            min-height: var(--touch-target);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .logout-btn:hover,
@@ -97,93 +132,121 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
         }
         
         main {
-            padding: 30px;
+            /* Mobile-first padding with viewport-based scaling */
+            padding: clamp(16px, 5vw, 30px);
         }
         
         h1 {
             color: #343a40;
             margin-top: 0;
-            margin-bottom: 20px;
-            font-size: 2rem;
+            margin-bottom: clamp(15px, 4vw, 25px);
+            /* Fluid heading size for better mobile scaling */
+            font-size: clamp(1.5rem, 6vw, 2.2rem);
             font-weight: 600;
+            /* Better line height for mobile readability */
+            line-height: 1.2;
         }
         
         section {
-            margin-bottom: 30px;
-            padding: 20px;
+            margin-bottom: clamp(20px, 5vw, 35px);
+            /* Mobile-optimized padding */
+            padding: clamp(16px, 4vw, 25px);
             background-color: #f8f9fa;
-            border-radius: 6px;
+            border-radius: var(--border-radius);
             border-left: 4px solid #007bff;
+            /* Better mobile shadow */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         
         p {
             margin: 0;
-            font-size: 1.1rem;
+            /* Mobile-optimized font size with better line spacing */
+            font-size: clamp(1rem, 4.2vw, 1.15rem);
+            line-height: 1.7;
         }
         
-        /* Mobile responsiveness */
-        @media (max-width: 768px) {
+        /* Enhanced mobile responsiveness with more breakpoints */
+        @media (min-width: 480px) {
+            /* Small tablets and large phones - minor adjustments */
+            section {
+                padding: clamp(20px, 4vw, 28px);
+            }
+        }
+        
+        @media (min-width: 768px) {
+            /* Tablets and small desktops */
             body {
-                padding: 10px;
+                padding: var(--desktop-padding);
+                font-size: 16px;
             }
             
             header {
-                flex-direction: column;
-                text-align: center;
-                gap: 15px;
+                flex-direction: row;
+                justify-content: space-between;
             }
             
             nav ul {
-                justify-content: center;
+                width: auto;
+                justify-content: flex-start;
             }
             
             main {
-                padding: 20px;
-            }
-            
-            h1 {
-                font-size: 1.75rem;
+                padding: 30px;
             }
             
             section {
-                padding: 15px;
+                padding: 25px;
             }
         }
         
-        @media (max-width: 480px) {
-            nav ul {
-                flex-direction: column;
-                gap: 10px;
-                width: 100%;
-            }
-            
-            nav a {
-                text-align: center;
-                width: 100%;
+        @media (min-width: 1024px) {
+            /* Large screens - optimal spacing */
+            section {
+                padding: 30px;
             }
         }
         
-        /* Focus styles for accessibility */
+        /* Enhanced focus styles for better mobile accessibility */
         *:focus {
             outline: 2px solid #007bff;
             outline-offset: 2px;
         }
         
-        /* Skip link for accessibility */
+        /* Better mobile skip link */
         .skip-link {
             position: absolute;
-            top: -40px;
-            left: 6px;
+            top: -60px;
+            left: clamp(6px, 2vw, 12px);
             background: #007bff;
             color: white;
-            padding: 8px;
+            padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
             text-decoration: none;
-            border-radius: 4px;
+            border-radius: var(--border-radius);
             z-index: 1000;
+            font-size: clamp(14px, 3.5vw, 16px);
+            min-height: var(--touch-target);
+            display: flex;
+            align-items: center;
         }
         
         .skip-link:focus {
-            top: 6px;
+            top: clamp(6px, 2vw, 12px);
+        }
+        
+        /* Touch device optimizations */
+        @media (hover: none) and (pointer: coarse) {
+            /* Increase touch targets on touch devices */
+            nav a,
+            .logout-btn {
+                min-height: 48px;
+            }
+        }
+        
+        /* Reduced motion for accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                transition: none !important;
+            }
         }
     </style>
 </head>
@@ -209,4 +272,4 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
         </main>
     </div>
 </body>
-</html> 
+</html>
