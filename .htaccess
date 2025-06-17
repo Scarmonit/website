@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Skip login.php from the check
+RewriteCond %{REQUEST_URI} !^/parker/login\.php$
+
+# Check if not authenticated and redirect to login
+RewriteCond %{HTTP_COOKIE} !parker_authenticated=true
+RewriteRule ^(.*)$ /parker/login.php [L]

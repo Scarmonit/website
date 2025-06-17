@@ -1,22 +1,47 @@
 <?php
-// Enforce authentication using original system
-require_once 'includes/auth.php';
-require_once 'includes/file-operations.php';
-
-// Set flag to indicate this is the authenticated file manager page
-$is_file_manager_page = true;
-
-// Include page structure
-require_once 'views/header.php';
+// Check for authentication cookie
+if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated'] !== 'true') {
+    header("Location: /parker/login.php");
+    exit;
+}
 ?>
 
-<!-- Main File Manager Layout -->
-<div class="file-manager-layout">
-    <!-- Upload Section - Positioned at top for better UX -->
-    <?php require_once 'views/upload-form.php'; ?>
-    
-    <!-- File Management Section -->
-    <?php require_once 'views/file-manager.php'; ?>
-</div>
+<!DOCTYPE html>
+<html lang="en">
 
-<?php require_once 'views/footer.php'; ?>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parker - Welcome</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Welcome to the Parker Directory</h1>
+    <p>You have successfully authenticated.</p>
+
+    <?php
+    // Display directory contents
+    $dir = "./";
+    $files = scandir($dir);
+    echo "<h2>Directory Contents:</h2>";
+    echo "<ul>";
+    foreach ($files as $file) {
+        if ($file != "." && $file != ".." && $file != "login.php" && $file != ".htaccess") {
+            echo "<li><a href='" . htmlspecialchars($file) . "'>" . htmlspecialchars($file) . "</a></li>";
+        }
+    }
+    echo "</ul>";
+    ?>
+</body>
+
+</html>
