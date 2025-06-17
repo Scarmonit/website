@@ -354,6 +354,71 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
                 min-height: 48px;
             }
         }
+        
+        /* Drag and drop styles */
+        .file-item[draggable="true"] {
+            cursor: grab;
+        }
+        
+        .file-item[draggable="true"]:active {
+            cursor: grabbing;
+        }
+        
+        .file-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+            z-index: 1000;
+        }
+        
+        .file-item[data-drop-target="true"] {
+            position: relative;
+        }
+        
+        .file-item[data-drop-target="true"].drag-over {
+            border: 2px dashed #007bff;
+            background-color: #e3f2fd;
+            transform: scale(1.02);
+        }
+        
+        .file-item[data-drop-target="true"].drag-over .file-icon {
+            animation: folderPulse 0.6s infinite alternate;
+        }
+        
+        @keyframes folderPulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+        
+        .folder-link {
+            cursor: pointer;
+        }
+        
+        .folder-link:hover .file-icon {
+            transform: scale(1.05);
+        }
+        
+        /* Visual feedback for successful operations */
+        .file-item.move-success {
+            border: 2px solid #28a745;
+            background-color: #d4edda;
+        }
+        
+        .file-item.move-error {
+            border: 2px solid #dc3545;
+            background-color: #f8d7da;
+        }
+        
+        /* Mobile drag and drop adjustments */
+        @media (max-width: 768px) {
+            .file-item[data-drop-target="true"].drag-over {
+                transform: scale(1.05);
+                border-width: 3px;
+            }
+            
+            .file-item.dragging {
+                transform: scale(0.95) rotate(3deg);
+            }
+        }
     </style>
 </head>
 
@@ -408,56 +473,89 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
                         
                         // Determine file icon based on extension
                         $icon = '📄'; // default
-                        switch ($fileExtension) {
-                            case 'php':
-                                $icon = '🐘';
-                                $fileType = 'PHP File';
-                                break;
-                            case 'html':
-                            case 'htm':
-                                $icon = '🌐';
-                                $fileType = 'HTML File';
-                                break;
-                            case 'css':
-                                $icon = '🎨';
-                                $fileType = 'CSS File';
-                                break;
-                            case 'js':
-                                $icon = '⚡';
-                                $fileType = 'JavaScript File';
-                                break;
-                            case 'txt':
-                                $icon = '📝';
-                                $fileType = 'Text File';
-                                break;
-                            case 'pdf':
-                                $icon = '📕';
-                                $fileType = 'PDF Document';
-                                break;
-                            case 'jpg':
-                            case 'jpeg':
-                            case 'png':
-                            case 'gif':
-                                $icon = '🖼️';
-                                $fileType = 'Image File';
-                                break;
-                            default:
-                                $icon = '📄';
-                                $fileType = strtoupper($fileExtension) . ' File';
+                        $isFolder = false;
+                        
+                        // Check if item is a directory
+                        if (is_dir($dir . $file)) {
+                            $icon = '📁';
+                            $fileType = 'Folder';
+                            $isFolder = true;
+                        } else {
+                            switch ($fileExtension) {
+                                case 'php':
+                                    $icon = '🐘';
+                                    $fileType = 'PHP File';
+                                    break;
+                                case 'html':
+                                case 'htm':
+                                    $icon = '🌐';
+                                    $fileType = 'HTML File';
+                                    break;
+                                case 'css':
+                                    $icon = '🎨';
+                                    $fileType = 'CSS File';
+                                    break;
+                                case 'js':
+                                    $icon = '⚡';
+                                    $fileType = 'JavaScript File';
+                                    break;
+                                case 'txt':
+                                    $icon = '📝';
+                                    $fileType = 'Text File';
+                                    break;
+                                case 'pdf':
+                                    $icon = '📕';
+                                    $fileType = 'PDF Document';
+                                    break;
+                                case 'jpg':
+                                case 'jpeg':
+                                case 'png':
+                                case 'gif':
+                                    $icon = '🖼️';
+                                    $fileType = 'Image File';
+                                    break;
+                                default:
+                                    $icon = '📄';
+                                    $fileType = strtoupper($fileExtension) . ' File';
+                            }
+                            
+                            if (empty($fileExtension)) {
+                                $fileType = 'File';
+                            }
                         }
                         
-                        if (empty($fileExtension)) {
-                            $fileType = 'File';
+                        // Add drag-and-drop attributes
+                        $dragAttributes = '';
+                        $dropAttributes = '';
+                        
+                        if ($isFolder) {
+                            // Folders are drop targets
+                            $dropAttributes = 'data-drop-target="true" data-folder-name="' . htmlspecialchars($file) . '"';
+                        } else {
+                            // Files are draggable
+                            $dragAttributes = 'draggable="true" data-file-name="' . htmlspecialchars($file) . '"';
                         }
                         
-                        echo '<li class="file-item">';
-                        echo '<a href="' . $fileLink . '" class="file-link" aria-label="Open ' . $fileName . '">';
+                        echo '<li class="file-item" ' . $dragAttributes . ' ' . $dropAttributes . '>';
+                        
+                        if ($isFolder) {
+                            echo '<div class="file-link folder-link" aria-label="Open folder ' . $fileName . '">';
+                        } else {
+                            echo '<a href="' . $fileLink . '" class="file-link" aria-label="Open ' . $fileName . '">';
+                        }
+                        
                         echo '<span class="file-icon" aria-hidden="true">' . $icon . '</span>';
                         echo '<div class="file-info">';
                         echo '<div class="file-name">' . $fileName . '</div>';
                         echo '<div class="file-type">' . $fileType . '</div>';
                         echo '</div>';
-                        echo '</a>';
+                        
+                        if ($isFolder) {
+                            echo '</div>';
+                        } else {
+                            echo '</a>';
+                        }
+                        
                         echo '</li>';
                     }
                     
@@ -467,6 +565,266 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
             </section>
         </main>
     </div>
+    
+    <script>
+        // Drag and Drop File Organization System
+        document.addEventListener('DOMContentLoaded', function() {
+            let draggedElement = null;
+            let draggedFileName = null;
+            
+            // Get all draggable files and drop targets
+            const draggableFiles = document.querySelectorAll('.file-item[draggable="true"]');
+            const dropTargets = document.querySelectorAll('.file-item[data-drop-target="true"]');
+            
+            // Add drag event listeners to files
+            draggableFiles.forEach(file => {
+                // Drag start - when user starts dragging a file
+                file.addEventListener('dragstart', function(e) {
+                    draggedElement = this;
+                    draggedFileName = this.dataset.fileName;
+                    this.classList.add('dragging');
+                    
+                    // Set drag data for accessibility
+                    e.dataTransfer.setData('text/plain', draggedFileName);
+                    e.dataTransfer.effectAllowed = 'move';
+                    
+                    console.log('Started dragging:', draggedFileName);
+                });
+                
+                // Drag end - when user stops dragging
+                file.addEventListener('dragend', function(e) {
+                    this.classList.remove('dragging');
+                    
+                    // Remove drag-over class from all drop targets
+                    dropTargets.forEach(target => {
+                        target.classList.remove('drag-over');
+                    });
+                    
+                    draggedElement = null;
+                    draggedFileName = null;
+                });
+            });
+            
+            // Add drop event listeners to folders
+            dropTargets.forEach(folder => {
+                // Prevent default drag over behavior
+                folder.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    
+                    // Add visual feedback
+                    this.classList.add('drag-over');
+                });
+                
+                // Remove visual feedback when leaving drop zone
+                folder.addEventListener('dragleave', function(e) {
+                    // Only remove if we're not moving to a child element
+                    if (!this.contains(e.relatedTarget)) {
+                        this.classList.remove('drag-over');
+                    }
+                });
+                
+                // Handle the drop event
+                folder.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('drag-over');
+                    
+                    if (draggedElement && draggedFileName) {
+                        const targetFolderName = this.dataset.folderName;
+                        
+                        // Simulate file move operation
+                        moveFileToFolder(draggedFileName, targetFolderName, draggedElement, this);
+                    }
+                });
+                
+                // Add click event for folder navigation (bonus feature)
+                const folderLink = folder.querySelector('.folder-link');
+                if (folderLink) {
+                    folderLink.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const folderName = folder.dataset.folderName;
+                        navigateToFolder(folderName);
+                    });
+                }
+            });
+            
+            // Simulated backend file move operation
+            function moveFileToFolder(fileName, folderName, fileElement, folderElement) {
+                console.log(`Moving ${fileName} to ${folderName}`);
+                
+                // Show loading state
+                fileElement.style.opacity = '0.6';
+                fileElement.style.pointerEvents = 'none';
+                
+                // REAL BACKEND INTEGRATION WOULD GO HERE:
+                // fetch('move_file.php', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({ fileName, folderName })
+                // })
+                // .then(response => response.json())
+                // .then(data => {
+                //     if (data.success) {
+                //         showMoveSuccess(fileElement, folderElement, fileName, folderName);
+                //     } else {
+                //         showMoveError(fileElement, fileName, folderName);
+                //     }
+                // })
+                // .catch(error => showMoveError(fileElement, fileName, folderName));
+                
+                // Simulate API call delay
+                setTimeout(() => {
+                    // Simulate success/failure (90% success rate for demo)
+                    const success = Math.random() > 0.1;
+                    
+                    if (success) {
+                        // Success: Remove file from current view
+                        showMoveSuccess(fileElement, folderElement, fileName, folderName);
+                        
+                        // Remove file after animation
+                        setTimeout(() => {
+                            fileElement.remove();
+                        }, 1500);
+                        
+                    } else {
+                        // Error: Show error feedback
+                        showMoveError(fileElement, fileName, folderName);
+                    }
+                    
+                    // Reset element state
+                    fileElement.style.opacity = '';
+                    fileElement.style.pointerEvents = '';
+                    
+                }, 500); // Simulate network delay
+            }
+            
+            // Show success feedback
+            function showMoveSuccess(fileElement, folderElement, fileName, folderName) {
+                // Animate file moving towards folder
+                fileElement.classList.add('move-success');
+                folderElement.classList.add('move-success');
+                
+                // Show success message
+                showNotification(`✅ Moved "${fileName}" to "${folderName}"`, 'success');
+                
+                // Clean up classes
+                setTimeout(() => {
+                    folderElement.classList.remove('move-success');
+                }, 1500);
+            }
+            
+            // Show error feedback
+            function showMoveError(fileElement, fileName, folderName) {
+                fileElement.classList.add('move-error');
+                
+                // Show error message
+                showNotification(`❌ Failed to move "${fileName}" to "${folderName}"`, 'error');
+                
+                // Clean up classes
+                setTimeout(() => {
+                    fileElement.classList.remove('move-error');
+                }, 2000);
+            }
+            
+            // Folder navigation (bonus feature)
+            function navigateToFolder(folderName) {
+                console.log(`Navigating to folder: ${folderName}`);
+                showNotification(`📁 Opening "${folderName}"...`, 'info');
+                
+                // In a real app, this would navigate to the folder
+                // For demo purposes, we'll just show a message
+                setTimeout(() => {
+                    showNotification(`This would open the "${folderName}" folder`, 'info');
+                }, 1000);
+            }
+            
+            // Notification system
+            function showNotification(message, type = 'info') {
+                // Remove existing notification
+                const existing = document.querySelector('.file-notification');
+                if (existing) {
+                    existing.remove();
+                }
+                
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.className = `file-notification file-notification-${type}`;
+                
+                // Detect mobile for responsive positioning
+                const isMobile = window.innerWidth <= 768;
+                
+                notification.style.cssText = `
+                    position: fixed;
+                    top: ${isMobile ? '10px' : '20px'};
+                    ${isMobile ? 'left: 10px; right: 10px;' : 'right: 20px; max-width: 300px;'}
+                    background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : '#d1ecf1'};
+                    border: 1px solid ${type === 'success' ? '#c3e6cb' : type === 'error' ? '#f5c6cb' : '#bee5eb'};
+                    color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : '#0c5460'};
+                    padding: ${isMobile ? '10px 15px' : '12px 20px'};
+                    border-radius: 6px;
+                    font-size: ${isMobile ? '13px' : '14px'};
+                    z-index: 10000;
+                    word-wrap: break-word;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    transform: translateX(100%);
+                    transition: transform 0.3s ease;
+                `;
+                
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                
+                // Animate in
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(0)';
+                }, 10);
+                
+                // Auto remove after delay
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }, type === 'error' ? 4000 : 3000);
+            }
+            
+            // Touch device support for mobile
+            if ('ontouchstart' in window) {
+                console.log('Touch device detected - drag and drop available');
+                
+                // Add touch-specific instructions
+                const firstDraggable = document.querySelector('.file-item[draggable="true"]');
+                if (firstDraggable) {
+                    showNotification('💡 Long press and drag files to folders', 'info');
+                }
+            }
+            
+            // Keyboard accessibility for drag and drop
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && draggedElement) {
+                    // Cancel current drag operation
+                    draggedElement.classList.remove('dragging');
+                    dropTargets.forEach(target => {
+                        target.classList.remove('drag-over');
+                    });
+                    draggedElement = null;
+                    draggedFileName = null;
+                    showNotification('Drag operation cancelled', 'info');
+                }
+            });
+            
+            // Log initialization
+            console.log(`File manager initialized with ${draggableFiles.length} files and ${dropTargets.length} folders`);
+            
+            // Show initial tip if there are draggable files and folders
+            if (draggableFiles.length > 0 && dropTargets.length > 0) {
+                setTimeout(() => {
+                    showNotification('💡 Drag files onto folders to organize them', 'info');
+                }, 1500);
+            }
+        });
+    </script>
 </body>
 
 </html>
