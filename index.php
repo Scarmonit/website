@@ -430,6 +430,7 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
             <nav role="navigation" aria-label="Main navigation">
                 <ul>
                     <li><a href="index.php" class="active" aria-current="page">Home</a></li>
+                    <li><a href="file-viewer.php">File Viewer</a></li>
                     <li><a href="me.php">About Me</a></li>
                 </ul>
             </nav>
