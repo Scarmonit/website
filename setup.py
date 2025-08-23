@@ -1,154 +1,176 @@
 #!/usr/bin/env python3
 """
-Setup script for Personal Price Tracker
-
-This script helps with initial setup and makes files executable.
+Setup Script for Price Tracker
+Helps users get started quickly with installation and configuration.
 """
 
 import os
 import sys
-import stat
-from pathlib import Path
+import subprocess
+import json
 
+def print_banner():
+    """Print welcome banner."""
+    print("""
+    ╔══════════════════════════════════════════════╗
+    ║      Personal Price Tracker Setup            ║
+    ╚══════════════════════════════════════════════╝
+    """)
 
-def make_executable(file_path):
-    """Make a file executable on Unix-like systems"""
-    try:
-        current_permissions = os.stat(file_path).st_mode
-        os.chmod(file_path, current_permissions | stat.S_IEXEC)
-        return True
-    except Exception as e:
-        print(f"Warning: Could not make {file_path} executable: {e}")
+def check_python_version():
+    """Check if Python version is 3.7+."""
+    version = sys.version_info
+    if version.major < 3 or (version.major == 3 and version.minor < 7):
+        print("❌ Python 3.7+ is required")
+        print(f"   Current version: {sys.version}")
         return False
-
-
-def setup_permissions():
-    """Setup file permissions for the project"""
-    print("🔧 Setting up file permissions...")
-    
-    executable_files = [
-        'price_tracker.py',
-        'examples.py',
-        'quick_start.py',
-        'test_system.py'
-    ]
-    
-    for file_path in executable_files:
-        if os.path.exists(file_path):
-            if make_executable(file_path):
-                print(f"   ✅ Made {file_path} executable")
-            else:
-                print(f"   ⚠️  Could not make {file_path} executable")
-        else:
-            print(f"   ❌ File not found: {file_path}")
-
-
-def check_project_structure():
-    """Check that all required files are present"""
-    print("\n📁 Checking project structure...")
-    
-    required_files = [
-        ('README.md', 'Main documentation'),
-        ('requirements.txt', 'Python dependencies'),
-        ('config.example.json', 'Example configuration'),
-        ('price_tracker.py', 'Main application'),
-        ('database.py', 'Database operations'),
-        ('scraper.py', 'Web scraping'),
-        ('notifications.py', 'Notification system'),
-        ('examples.py', 'Usage examples'),
-        ('quick_start.py', 'Quick setup script'),
-        ('test_system.py', 'System tests')
-    ]
-    
-    all_present = True
-    
-    for file_path, description in required_files:
-        if os.path.exists(file_path):
-            file_size = os.path.getsize(file_path)
-            print(f"   ✅ {file_path:<20} ({file_size:,} bytes) - {description}")
-        else:
-            print(f"   ❌ {file_path:<20} MISSING - {description}")
-            all_present = False
-    
-    return all_present
-
-
-def show_quick_start():
-    """Show quick start instructions"""
-    print("\n" + "=" * 60)
-    print("🚀 Personal Price Tracker - Setup Complete!")
-    print("=" * 60)
-    
-    print("\n📚 Quick Start Options:")
-    
-    print("\n1. 🏃 Fastest Start (Recommended for beginners):")
-    print("   python quick_start.py")
-    
-    print("\n2. 🧪 Test System First:")
-    print("   python test_system.py")
-    
-    print("\n3. 📖 Manual Setup:")
-    print("   Step 1: pip install -r requirements.txt")
-    print("   Step 2: cp config.example.json config.json")
-    print("   Step 3: python price_tracker.py --init")
-    print("   Step 4: python price_tracker.py --add 'URL' --name 'Name' --threshold 50.00")
-    
-    print("\n4. 🎮 See Examples:")
-    print("   python examples.py")
-    
-    print("\n📧 Email Setup (Optional):")
-    print("   - Edit config.json with your Gmail credentials")
-    print("   - Use Gmail App Password (not regular password)")
-    print("   - Enable 2-factor authentication first")
-    
-    print("\n❓ Need Help?")
-    print("   python price_tracker.py --help")
-    print("   📘 Full guide: README.md")
-    
-    print("\n🎯 Common Commands:")
-    print("   Add product:    python price_tracker.py --add URL --name 'Name' --threshold 50")
-    print("   Check prices:   python price_tracker.py --check")
-    print("   List products:  python price_tracker.py --list")
-    print("   Auto monitor:   python price_tracker.py --daemon")
-
-
-def main():
-    """Main setup function"""
-    print("🛠️  Personal Price Tracker - Setup")
-    print("=" * 40)
-    
-    # Check Python version
-    if sys.version_info < (3, 7):
-        print(f"❌ Python 3.7+ required. Current: {sys.version}")
-        return False
-    
-    print(f"✅ Python version: {sys.version.split()[0]}")
-    
-    # Setup permissions (Unix/Linux/Mac)
-    if os.name != 'nt':  # Not Windows
-        setup_permissions()
-    else:
-        print("🖥️  Windows detected - skipping executable permissions")
-    
-    # Check project structure
-    if not check_project_structure():
-        print("\n❌ Some files are missing. Please ensure all files are present.")
-        return False
-    
-    # Show next steps
-    show_quick_start()
-    
+    print(f"✅ Python {version.major}.{version.minor} detected")
     return True
 
+def install_requirements():
+    """Install required packages."""
+    print("\n📦 Installing required packages...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+        print("✅ All packages installed successfully")
+        return True
+    except subprocess.CalledProcessError:
+        print("❌ Failed to install packages")
+        print("   Try running: pip install -r requirements.txt")
+        return False
+
+def setup_config():
+    """Set up configuration file."""
+    print("\n⚙️ Setting up configuration...")
+    
+    if os.path.exists("config.json"):
+        print("   Config file already exists")
+        response = input("   Do you want to configure email notifications? (y/n): ").lower()
+        if response != 'y':
+            return True
+    
+    config = {
+        "email": {
+            "enabled": False,
+            "smtp_server": "smtp.gmail.com",
+            "smtp_port": 587,
+            "sender_email": "",
+            "sender_password": "",
+            "recipient_email": ""
+        },
+        "check_interval_hours": 24,
+        "notification_settings": {
+            "console_alerts": True,
+            "email_alerts": False
+        }
+    }
+    
+    print("\n📧 Email Configuration (optional, press Enter to skip)")
+    
+    email_setup = input("Do you want to set up email notifications? (y/n): ").lower()
+    
+    if email_setup == 'y':
+        print("\nFor Gmail users:")
+        print("1. Enable 2-Factor Authentication")
+        print("2. Generate an App Password at: https://myaccount.google.com/apppasswords")
+        print("3. Use the App Password (not your regular password)\n")
+        
+        config["email"]["sender_email"] = input("Sender email address: ").strip()
+        config["email"]["sender_password"] = input("App password: ").strip()
+        config["email"]["recipient_email"] = input("Recipient email (can be same as sender): ").strip()
+        
+        provider = input("Email provider (gmail/outlook/yahoo/other): ").lower()
+        if provider == "outlook":
+            config["email"]["smtp_server"] = "smtp-mail.outlook.com"
+        elif provider == "yahoo":
+            config["email"]["smtp_server"] = "smtp.mail.yahoo.com"
+        elif provider == "other":
+            config["email"]["smtp_server"] = input("SMTP server address: ").strip()
+            config["email"]["smtp_port"] = int(input("SMTP port (usually 587): ") or "587")
+        
+        if config["email"]["sender_email"] and config["email"]["sender_password"]:
+            config["email"]["enabled"] = True
+            config["notification_settings"]["email_alerts"] = True
+            print("✅ Email notifications configured")
+        else:
+            print("⚠️ Email configuration incomplete - notifications disabled")
+    
+    # Check interval
+    interval = input("\nHow often to check prices (hours, default=24): ").strip()
+    if interval.isdigit():
+        config["check_interval_hours"] = int(interval)
+    
+    # Save configuration
+    with open("config.json", "w") as f:
+        json.dump(config, f, indent=4)
+    
+    print("✅ Configuration saved to config.json")
+    return True
+
+def test_installation():
+    """Test the installation."""
+    print("\n🧪 Testing installation...")
+    try:
+        import requests
+        import bs4
+        import schedule
+        print("✅ All modules imported successfully")
+        
+        # Test database creation
+        from price_tracker import PriceTracker
+        tracker = PriceTracker()
+        print("✅ Database initialized successfully")
+        
+        return True
+    except ImportError as e:
+        print(f"❌ Import error: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return False
+
+def print_next_steps():
+    """Print next steps for the user."""
+    print("\n" + "="*50)
+    print("🎉 Setup Complete!")
+    print("="*50)
+    print("\n📌 Next Steps:\n")
+    print("1. Run the example demo:")
+    print("   python example_usage.py\n")
+    print("2. Add your first product:")
+    print("   python price_tracker.py add --url \"PRODUCT_URL\" --name \"Product Name\" --target 99.99\n")
+    print("3. Check prices manually:")
+    print("   python price_tracker.py check\n")
+    print("4. Start automated checking:")
+    print("   python scheduler.py\n")
+    print("5. View all commands:")
+    print("   python price_tracker.py --help\n")
+    print("📚 Full documentation: README.md")
+    print("="*50)
+
+def main():
+    """Main setup function."""
+    print_banner()
+    
+    # Check Python version
+    if not check_python_version():
+        sys.exit(1)
+    
+    # Install requirements
+    if not install_requirements():
+        print("\n⚠️ Please install packages manually and run setup again")
+        sys.exit(1)
+    
+    # Setup configuration
+    setup_config()
+    
+    # Test installation
+    if test_installation():
+        print_next_steps()
+    else:
+        print("\n⚠️ Some issues were detected. Please check the errors above.")
+        print("   You may need to install packages manually:")
+        print("   pip install requests beautifulsoup4 schedule")
 
 if __name__ == "__main__":
-    try:
-        success = main()
-        if not success:
-            sys.exit(1)
-    except KeyboardInterrupt:
-        print("\n👋 Setup interrupted")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n❌ Setup failed: {e}")
-        sys.exit(1)
+    main()

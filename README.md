@@ -1,302 +1,322 @@
-# Personal Price Tracker
+# 📊 Personal Price Tracker
 
-A production-ready Python 3.11 command-line tool for tracking product prices across major e-commerce sites and receiving alerts when prices drop below your target.
+A Python-based tool to monitor product prices from major e-commerce websites and get notified when prices drop below your target threshold.
 
-## Features
+## ✨ Features
 
-- **Multi-Site Support**: Track products from Amazon, eBay, and Walmart
-- **Smart Notifications**: Email alerts via Gmail and optional desktop notifications
-- **Price History**: SQLite database tracks all price changes over time
-- **Flexible Scheduling**: Run once or continuously with configurable intervals
-- **Resilient Scraping**: Multiple selector strategies, retry logic, and rate limiting
-- **CLI Interface**: Easy-to-use commands for managing products and monitoring
+- 🛒 **Multi-Platform Support**: Track prices from Amazon, eBay, Walmart, and other e-commerce sites
+- 📈 **Price History**: Store and view historical price data in SQLite database
+- 🔔 **Smart Notifications**: Get alerts via email or console when prices drop
+- ⏰ **Automated Checking**: Schedule periodic price checks (daily or custom intervals)
+- 💾 **Local Storage**: All data stored locally in SQLite database
+- 🎯 **Target Price Alerts**: Set custom price thresholds for each product
 
-## Quick Start
+## 📋 Prerequisites
+
+- Python 3.7 or higher
+- pip (Python package manager)
+- Internet connection for price checking
+
+## 🚀 Quick Start Guide
+
+### Step 1: Clone or Download the Project
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/price-tracker.git
+# Create a new directory for the project
+mkdir price-tracker
 cd price-tracker
 
-# Create virtual environment
-python3.11 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Download the files or create them manually
+```
 
-# Install dependencies
+### Step 2: Install Required Libraries
+
+```bash
 pip install -r requirements.txt
-
-# Configure settings
-cp config.example.ini config.ini
-# Edit config.ini with your Gmail app password
-
-# Initialize database
-python price_tracker.py init-db
-
-# Add your first product
-python price_tracker.py add "https://www.amazon.com/dp/B08N5WRWNW" --target 40.00 --name "Echo Dot"
-
-# Start monitoring
-python price_tracker.py monitor
 ```
 
-## Setup & Configuration
-
-### Gmail Setup for Notifications
-
-1. Enable 2-factor authentication on your Google account
-2. Generate an app password:
-   - Go to https://myaccount.google.com/apppasswords
-   - Select "Mail" and generate password
-3. Add credentials to `config.ini`:
-   ```ini
-   [email]
-   sender_email = your.email@gmail.com
-   sender_password = your-app-password-here
-   recipient_email = your.email@gmail.com
-   ```
-
-### Configuration Options
-
-Edit `config.ini` to customize:
-
-- **Scheduler**: Check interval, jitter, rate limiting
-- **Scraping**: User agent, timeouts, retry settings
-- **Logging**: Log levels, file rotation
-- **Notifications**: Cooldown periods, desktop alerts
-
-## Usage Examples
-
-### Adding Products
+Or install packages individually:
 
 ```bash
-# Amazon product
-python price_tracker.py add "https://www.amazon.com/dp/B08N5WRWNW" --target 35.00 --name "Echo Dot 4th Gen"
-
-# eBay auction
-python price_tracker.py add "https://www.ebay.com/itm/234567890123" --target 150.00 --name "Vintage Camera"
-
-# Walmart item
-python price_tracker.py add "https://www.walmart.com/ip/12345678" --target 25.00 --name "Bluetooth Speaker"
+pip install requests beautifulsoup4 schedule lxml
 ```
 
-### Managing Products
+### Step 3: Basic Usage - Command Line
+
+#### Add a Product to Track
 
 ```bash
-# List all tracked products
-python price_tracker.py list
-
-# Update target price
-python price_tracker.py set-target 1 45.00
-
-# View price history
-python price_tracker.py history 1 --days 30
-
-# Remove product
-python price_tracker.py remove 1
+python price_tracker.py add --url "https://www.amazon.com/dp/PRODUCT_ID" --name "Product Name" --target 50.00
 ```
 
-### Monitoring
+#### Check Prices
 
 ```bash
-# Run continuous monitoring (default interval from config)
-python price_tracker.py monitor
-
-# Run with custom interval (30 minutes)
-python price_tracker.py monitor --interval 30
-
-# Run single check
-python price_tracker.py monitor --once
+# Check all products
+python price_tracker.py check
 
 # Check specific product
-python price_tracker.py check 1
+python price_tracker.py check --id 1
 ```
 
-## Example Session
-
-```
-$ python price_tracker.py add "https://www.amazon.com/dp/B0B4N77B65" --target 80.00 --name "AirPods Pro 2"
-Fetching product details...
-✓ Added: AirPods Pro 2
-  Current Price: $249.00
-  Target Price: $80.00
-  Product ID: 1
-
-$ python price_tracker.py list
-╭─────────────────────── Tracked Products ────────────────────────╮
-│ ID │ Name           │ Site   │ Current  │ Target  │ Status      │
-├────┼────────────────┼────────┼──────────┼─────────┼─────────────┤
-│ 1  │ AirPods Pro 2  │ Amazon │ $249.00  │ $80.00  │ +$169.00    │
-╰──────────────────────────────────────────────────────────────────╯
-
-$ python price_tracker.py monitor --once
-Checking all products...
-✓ Checked 1 products
-```
-
-## Sample Alert Email
-
-When a product drops below your target price, you'll receive an email like:
-
-```
-Subject: 🎯 Price Drop Alert: Echo Dot 4th Gen
-
-PRICE DROP ALERT!
-
-Product: Echo Dot (4th Gen)
-Site: Amazon
-
-Old Price: $49.99
-NEW PRICE: $34.99
-Target Price: $40.00
-
-YOU SAVE: $15.00 (30.0% OFF!)
-
-View Product: https://www.amazon.com/dp/B08N5WRWNW
-```
-
-## Testing
-
-Run the test suite:
+#### List All Tracked Products
 
 ```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=. --cov-report=html
-
-# Run specific test file
-pytest tests/test_parsing.py -v
+python price_tracker.py list
 ```
 
-## Extensibility
+#### View Price History
 
-### Adding a New Site
-
-1. Create new tracker in `trackers/newsite.py`:
-   ```python
-   from trackers.base import TrackerBase
-   
-   class NewSiteTracker(TrackerBase):
-       @property
-       def site_name(self):
-           return "NewSite"
-       
-       def extract_product_info(self, soup, url):
-           # Implement extraction logic
-           pass
-   ```
-
-2. Register in `trackers/__init__.py`:
-   ```python
-   if 'newsite' in domain:
-       return NewSiteTracker()
-   ```
-
-### Desktop Notifications
-
-Install optional dependency:
 ```bash
-pip install plyer
+python price_tracker.py history --id 1
 ```
 
-Enable in `config.ini`:
-```ini
-[notifications]
-desktop_enabled = true
+### Step 4: Run the Example Demo
+
+```bash
+python example_usage.py
 ```
 
-### CSV Export
+This will demonstrate all features with sample products.
 
-Add to your workflow:
+## 📧 Email Notifications Setup
+
+### Step 1: Configure Email Settings
+
+Edit `config.json`:
+
+```json
+{
+    "email": {
+        "enabled": true,
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 587,
+        "sender_email": "your_email@gmail.com",
+        "sender_password": "your_app_password",
+        "recipient_email": "recipient@gmail.com"
+    },
+    "check_interval_hours": 24
+}
+```
+
+### Step 2: Gmail Setup (Recommended)
+
+1. Enable 2-Factor Authentication in your Google Account
+2. Generate an App Password:
+   - Go to Google Account Settings
+   - Security → 2-Step Verification → App passwords
+   - Generate a password for "Mail"
+   - Use this password in `config.json`
+
+### Step 3: Other Email Providers
+
+- **Outlook**: smtp-mail.outlook.com (port 587)
+- **Yahoo**: smtp.mail.yahoo.com (port 587)
+- **Custom**: Use your email provider's SMTP settings
+
+## ⏰ Automated Price Checking
+
+### Run the Scheduler
+
+```bash
+python scheduler.py
+```
+
+This will:
+- Check all products immediately
+- Continue checking at the interval specified in `config.json`
+- Log all activities to `price_tracker.log`
+- Run until you stop it with Ctrl+C
+
+### Run as Background Service (Linux/Mac)
+
+```bash
+nohup python scheduler.py &
+```
+
+### Run as Background Service (Windows)
+
+Use Task Scheduler to run `scheduler.py` at startup.
+
+## 🔧 Advanced Usage
+
+### Python Script Integration
+
 ```python
-import csv
-from db.models import Database
+from price_tracker import PriceTracker
 
-db = Database()
-products = db.get_all_products()
+# Initialize tracker
+tracker = PriceTracker()
 
-with open('products.csv', 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=['name', 'current_price', 'target_price'])
-    writer.writeheader()
-    for p in products:
-        writer.writerow({
-            'name': p.name,
-            'current_price': p.current_price,
-            'target_price': p.target_price
-        })
+# Add a product
+product_id = tracker.add_product(
+    url="https://www.amazon.com/dp/B08N5WRWNW",
+    name="Echo Dot",
+    target_price=25.00
+)
+
+# Check price
+current_price = tracker.check_price(product_id)
+print(f"Current price: ${current_price}")
+
+# Get price history
+history = tracker.get_price_history(product_id)
+for record in history:
+    print(f"{record['timestamp']}: ${record['price']}")
 ```
 
-## Security & Compliance
+## 📁 Project Structure
 
-### Best Practices
-
-- **Respect Terms of Service**: Review each site's ToS before scraping
-- **Rate Limiting**: Default 2-second delay between requests
-- **User Agent**: Identifies as standard browser, not bot
-- **Conservative Intervals**: Default 60-minute check interval
-- **Secure Storage**: Credentials stored in config file, not code
-
-### Compliance Notes
-
-- HTML structures change frequently; selectors may need updates
-- Some sites may block automated requests
-- Use responsibly for personal use only
-- Consider site-specific APIs when available
-
-## Troubleshooting
-
-### Common Issues
-
-**CAPTCHA/Blocked Requests**
-- Increase request delays in config
-- Rotate user agents
-- Use longer check intervals
-
-**Changed Selectors**
-- Check logs for extraction failures
-- Update selectors in tracker classes
-- Test with single product first
-
-**SMTP Authentication Failed**
-- Verify app password (not regular password)
-- Check 2FA is enabled
-- Confirm SMTP settings
-
-**No Price Found**
-- Product may be out of stock
-- Page structure may have changed
-- Try alternate product URL format
-
-### Debug Mode
-
-Enable detailed logging:
-```ini
-[logging]
-level = DEBUG
+```
+price-tracker/
+│
+├── price_tracker.py      # Main tracker module
+├── scheduler.py          # Automated scheduling script
+├── example_usage.py      # Demo script with examples
+├── config.json          # Configuration file
+├── requirements.txt     # Python dependencies
+├── README.md           # This file
+├── price_history.db    # SQLite database (created automatically)
+└── price_tracker.log   # Log file (created when scheduler runs)
 ```
 
-Check logs:
+## 🗄️ Database Schema
+
+### Products Table
+- `id`: Unique identifier
+- `url`: Product URL
+- `name`: Product name
+- `target_price`: Target price for notifications
+- `last_checked`: Last check timestamp
+- `created_at`: Creation timestamp
+
+### Price History Table
+- `id`: Unique identifier
+- `product_id`: Foreign key to products
+- `price`: Recorded price
+- `currency`: Currency code
+- `timestamp`: Recording timestamp
+
+## 🛠️ Troubleshooting
+
+### Common Issues and Solutions
+
+#### 1. Price Extraction Fails
+
+**Problem**: "Could not extract price from website"
+
+**Solutions**:
+- The website may have anti-bot protection
+- Try adding a delay between requests
+- Update the User-Agent in headers
+- Check if the website requires login
+
+#### 2. Email Notifications Not Working
+
+**Problem**: "Failed to send email"
+
+**Solutions**:
+- Verify SMTP settings in `config.json`
+- Check app password (not regular password)
+- Ensure "Less secure app access" is enabled (if applicable)
+- Check firewall/antivirus settings
+
+#### 3. Database Errors
+
+**Problem**: "Database is locked" or similar
+
+**Solutions**:
+- Ensure only one instance of scheduler is running
+- Delete `price_history.db` to start fresh
+- Check file permissions
+
+#### 4. Import Errors
+
+**Problem**: "ModuleNotFoundError"
+
+**Solutions**:
 ```bash
-tail -f price_tracker.log
-tail -f errors.log
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-## Requirements
+## 🎯 Best Practices
 
-- Python 3.11+
-- SQLite (included with Python)
-- Internet connection
-- Gmail account (for email alerts)
+1. **Respect Rate Limits**: Don't check prices too frequently (minimum 1 hour intervals recommended)
+2. **Use Realistic Headers**: The tool includes browser-like headers to avoid detection
+3. **Monitor Responsibly**: Only track products you intend to purchase
+4. **Keep URLs Updated**: Product URLs may change; update them if tracking fails
+5. **Regular Backups**: Backup your `price_history.db` file periodically
 
-## License
+## ⚠️ Important Notes
 
-MIT License - See LICENSE file for details
+### Supported Websites
 
-## Contributing
+The tracker works best with:
+- ✅ Amazon (most product pages)
+- ✅ eBay (listing pages)
+- ✅ Walmart (product pages)
+- ⚠️ Other sites (may require customization)
 
-Pull requests welcome! Please include tests for new features.
+### Limitations
 
-## Support
+- Some websites require login for prices
+- Dynamic pricing may cause frequent fluctuations
+- Anti-bot measures may block requests
+- JavaScript-rendered prices may not be captured
 
-For issues and questions, please use the GitHub issue tracker.
+### Legal Considerations
+
+- Use this tool responsibly and in accordance with website terms of service
+- This tool is for personal use only
+- Respect robots.txt files and rate limits
+- Do not use for commercial purposes without permission
+
+## 📝 Customization
+
+### Adding New Website Support
+
+Edit `get_price_from_page()` in `price_tracker.py`:
+
+```python
+# Add new selectors for your website
+elif 'yoursite' in domain:
+    price_selectors = [
+        'your-price-selector',
+        'alternative-selector'
+    ]
+    # ... extraction logic
+```
+
+### Changing Notification Methods
+
+Modify `send_notification()` to add:
+- Desktop notifications (using `plyer`)
+- SMS alerts (using Twilio)
+- Discord/Slack webhooks
+- Push notifications
+
+## 🤝 Contributing
+
+Feel free to customize and extend this tool for your needs. Some ideas:
+- Add more e-commerce platforms
+- Implement price prediction
+- Create a web interface
+- Add data visualization
+- Export to CSV/Excel
+
+## 📄 License
+
+This tool is provided as-is for educational and personal use.
+
+## 🆘 Support
+
+For issues or questions:
+1. Check the Troubleshooting section
+2. Review the example scripts
+3. Ensure all dependencies are installed
+4. Check the log file for errors
+
+---
+
+**Happy Price Tracking! 🛍️💰**

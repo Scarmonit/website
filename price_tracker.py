@@ -1,305 +1,550 @@
 #!/usr/bin/env python3
 """
-Price Tracker CLI - Track product prices and get sale alerts
+Personal Price Tracker
+A tool to monitor product prices from e-commerce websites and notify when prices drop.
 """
 
-import sys
-from pathlib import Path
-from typing import Optional
-from datetime import datetime, timedelta
+import sqlite3
+import requests
+from bs4 import BeautifulSoup
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime
+import json
+import time
+import re
+from typing import Dict, Optional, Tuple, List
+import logging
+from urllib.parse import urlparse
 
-import typer
-from rich.console import Console
-from rich.table import Table
-from rich import print as rprint
-
-from db.models import Database, Product, PriceHistory
-from services.scheduler import PriceMonitor
-from services.notifier import NotificationService
-from services.logger import setup_logger
-from trackers import get_tracker
-from utils.parsing import parse_currency
-
-app = typer.Typer(help="Personal Price Tracker - Never miss a sale!")
-console = Console()
-logger = setup_logger(__name__)
-
-
-@app.command()
-def init_db():
-    """Initialize the database with required tables"""
-    try:
-        db = Database()
-        db.init_database()
-        console.print("[green]✓ Database initialized successfully![/green]")
-    except Exception as e:
-        console.print(f"[red]✗ Failed to initialize database: {e}[/red]")
-        raise typer.Exit(1)
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
-@app.command()
-def add(
-    url: str = typer.Argument(..., help="Product URL to track"),
-    target_price: float = typer.Option(..., "--target", "-t", help="Target price for alerts"),
-    name: Optional[str] = typer.Option(None, "--name", "-n", help="Custom product name"),
-):
-    """Add a new product to track"""
-    try:
-        # Detect site and validate URL
-        tracker = get_tracker(url)
-        if not tracker:
-            console.print(f"[red]✗ Unsupported site. Supported: Amazon, eBay, Walmart[/red]")
-            raise typer.Exit(1)
+class PriceTracker:
+    """Main class for tracking product prices across different e-commerce sites."""
+    
+    def __init__(self, db_path: str = "price_history.db", config_path: str = "config.json"):
+        """
+        Initialize the price tracker.
         
-        # Fetch initial price
-        console.print(f"[yellow]Fetching product details...[/yellow]")
-        product_info = tracker.scrape(url)
+        Args:
+            db_path: Path to SQLite database file
+            config_path: Path to configuration file
+        """
+        self.db_path = db_path
+        self.config_path = config_path
+        self.config = self.load_config()
+        self.init_database()
         
-        if not product_info:
-            console.print(f"[red]✗ Failed to fetch product information[/red]")
-            raise typer.Exit(1)
+        # Headers to avoid bot detection
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
+        }
+    
+    def load_config(self) -> Dict:
+        """Load configuration from JSON file."""
+        try:
+            with open(self.config_path, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            logger.warning(f"Config file {self.config_path} not found. Using defaults.")
+            return {
+                "email": {
+                    "enabled": False,
+                    "smtp_server": "",
+                    "smtp_port": 587,
+                    "sender_email": "",
+                    "sender_password": "",
+                    "recipient_email": ""
+                },
+                "check_interval_hours": 24
+            }
+    
+    def init_database(self):
+        """Initialize SQLite database with required tables."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         
-        # Use fetched name if custom name not provided
-        product_name = name or product_info.get('title', 'Unknown Product')
-        current_price = product_info.get('price')
-        
-        # Save to database
-        db = Database()
-        product = Product(
-            url=url,
-            name=product_name,
-            site=tracker.site_name,
-            target_price=target_price,
-            current_price=current_price
-        )
-        
-        product_id = db.add_product(product)
-        
-        # Add initial price history
-        if current_price:
-            db.add_price_history(product_id, current_price)
-        
-        console.print(f"[green]✓ Added: {product_name}[/green]")
-        console.print(f"  Current Price: ${current_price:.2f}" if current_price else "  Price: Unknown")
-        console.print(f"  Target Price: ${target_price:.2f}")
-        console.print(f"  Product ID: {product_id}")
-        
-    except Exception as e:
-        logger.error(f"Failed to add product: {e}")
-        console.print(f"[red]✗ Error: {e}[/red]")
-        raise typer.Exit(1)
-
-
-@app.command()
-def list():
-    """List all tracked products"""
-    try:
-        db = Database()
-        products = db.get_all_products()
-        
-        if not products:
-            console.print("[yellow]No products being tracked. Use 'add' command to start.[/yellow]")
-            return
-        
-        table = Table(title="Tracked Products")
-        table.add_column("ID", style="cyan")
-        table.add_column("Name", style="white")
-        table.add_column("Site", style="blue")
-        table.add_column("Current", style="green")
-        table.add_column("Target", style="yellow")
-        table.add_column("Status", style="magenta")
-        table.add_column("Last Check")
-        
-        for product in products:
-            current = f"${product.current_price:.2f}" if product.current_price else "N/A"
-            target = f"${product.target_price:.2f}"
-            
-            # Determine status
-            if product.current_price and product.current_price <= product.target_price:
-                status = "[green]ON SALE![/green]"
-            elif product.current_price:
-                diff = product.current_price - product.target_price
-                status = f"+${diff:.2f}"
-            else:
-                status = "Unknown"
-            
-            last_check = product.last_checked or "Never"
-            if isinstance(last_check, datetime):
-                last_check = last_check.strftime("%Y-%m-%d %H:%M")
-            
-            table.add_row(
-                str(product.id),
-                product.name[:40] + "..." if len(product.name) > 40 else product.name,
-                product.site,
-                current,
-                target,
-                status,
-                last_check
+        # Create products table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT UNIQUE NOT NULL,
+                name TEXT,
+                target_price REAL,
+                last_checked TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        ''')
         
-        console.print(table)
+        # Create price history table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS price_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER,
+                price REAL,
+                currency TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (product_id) REFERENCES products (id)
+            )
+        ''')
         
-    except Exception as e:
-        logger.error(f"Failed to list products: {e}")
-        console.print(f"[red]✗ Error: {e}[/red]")
-
-
-@app.command()
-def remove(product_id: int = typer.Argument(..., help="Product ID to remove")):
-    """Remove a product from tracking"""
-    try:
-        db = Database()
-        product = db.get_product(product_id)
+        conn.commit()
+        conn.close()
+        logger.info("Database initialized successfully")
+    
+    def add_product(self, url: str, name: str = None, target_price: float = None) -> int:
+        """
+        Add a new product to track.
         
-        if not product:
-            console.print(f"[red]✗ Product ID {product_id} not found[/red]")
-            raise typer.Exit(1)
-        
-        if typer.confirm(f"Remove '{product.name}'?"):
-            db.remove_product(product_id)
-            console.print(f"[green]✓ Removed product: {product.name}[/green]")
-        else:
-            console.print("[yellow]Cancelled[/yellow]")
+        Args:
+            url: Product URL
+            name: Product name (optional)
+            target_price: Target price for notifications
             
-    except Exception as e:
-        logger.error(f"Failed to remove product: {e}")
-        console.print(f"[red]✗ Error: {e}[/red]")
-
-
-@app.command()
-def set_target(
-    product_id: int = typer.Argument(..., help="Product ID"),
-    target_price: float = typer.Argument(..., help="New target price"),
-):
-    """Update target price for a product"""
-    try:
-        db = Database()
-        product = db.get_product(product_id)
+        Returns:
+            Product ID
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                INSERT INTO products (url, name, target_price)
+                VALUES (?, ?, ?)
+            ''', (url, name, target_price))
+            
+            product_id = cursor.lastrowid
+            conn.commit()
+            logger.info(f"Added product: {name or url}")
+            return product_id
+            
+        except sqlite3.IntegrityError:
+            # Product already exists, get its ID
+            cursor.execute('SELECT id FROM products WHERE url = ?', (url,))
+            product_id = cursor.fetchone()[0]
+            
+            # Update target price if provided
+            if target_price is not None:
+                cursor.execute('''
+                    UPDATE products SET target_price = ? WHERE id = ?
+                ''', (target_price, product_id))
+                conn.commit()
+            
+            logger.info(f"Product already exists: {name or url}")
+            return product_id
+            
+        finally:
+            conn.close()
+    
+    def get_price_from_page(self, url: str) -> Tuple[Optional[float], Optional[str]]:
+        """
+        Extract price from product page.
+        
+        Args:
+            url: Product URL
+            
+        Returns:
+            Tuple of (price, currency) or (None, None) if extraction fails
+        """
+        try:
+            response = requests.get(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            domain = urlparse(url).netloc.lower()
+            
+            # Amazon price selectors
+            if 'amazon' in domain:
+                price_selectors = [
+                    'span.a-price-whole',
+                    'span#priceblock_dealprice',
+                    'span#priceblock_ourprice',
+                    'span.a-price.a-text-price.a-size-medium.apexPriceToPay',
+                    'span.a-price-range',
+                    'span.a-price.a-text-price.header-price'
+                ]
+                
+                for selector in price_selectors:
+                    price_elem = soup.select_one(selector)
+                    if price_elem:
+                        price_text = price_elem.get_text().strip()
+                        price = self.extract_price_from_text(price_text)
+                        if price:
+                            return price, 'USD'
+            
+            # eBay price selectors
+            elif 'ebay' in domain:
+                price_selectors = [
+                    'span.ux-textspans--BOLD',
+                    'div.x-price-primary span',
+                    'span[itemprop="price"]',
+                    'div.vi-VR-cvipPrice'
+                ]
+                
+                for selector in price_selectors:
+                    price_elem = soup.select_one(selector)
+                    if price_elem:
+                        price_text = price_elem.get_text().strip()
+                        price = self.extract_price_from_text(price_text)
+                        if price:
+                            return price, 'USD'
+            
+            # Walmart price selectors
+            elif 'walmart' in domain:
+                price_selectors = [
+                    'span[itemprop="price"]',
+                    'span.price-characteristic',
+                    'div[data-testid="price-wrap"] span',
+                    'span.w_VM'
+                ]
+                
+                for selector in price_selectors:
+                    price_elem = soup.select_one(selector)
+                    if price_elem:
+                        price_text = price_elem.get_text().strip()
+                        price = self.extract_price_from_text(price_text)
+                        if price:
+                            return price, 'USD'
+            
+            # Generic price extraction for other sites
+            else:
+                # Look for common price patterns in the HTML
+                price_patterns = [
+                    r'\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                    r'USD\s*(\d+(?:,\d{3})*(?:\.\d{2})?)',
+                    r'Price:\s*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)'
+                ]
+                
+                page_text = soup.get_text()
+                for pattern in price_patterns:
+                    match = re.search(pattern, page_text)
+                    if match:
+                        price_str = match.group(1).replace(',', '')
+                        try:
+                            return float(price_str), 'USD'
+                        except ValueError:
+                            continue
+            
+            logger.warning(f"Could not extract price from {domain}")
+            return None, None
+            
+        except requests.RequestException as e:
+            logger.error(f"Error fetching page {url}: {e}")
+            return None, None
+        except Exception as e:
+            logger.error(f"Unexpected error extracting price from {url}: {e}")
+            return None, None
+    
+    def extract_price_from_text(self, text: str) -> Optional[float]:
+        """
+        Extract numeric price from text string.
+        
+        Args:
+            text: Text containing price
+            
+        Returns:
+            Price as float or None
+        """
+        # Remove currency symbols and extra spaces
+        text = re.sub(r'[^\d.,]', '', text)
+        text = text.replace(',', '')
+        
+        # Try to extract the price
+        try:
+            # Handle price ranges (take the first price)
+            if '-' in text:
+                text = text.split('-')[0]
+            
+            price = float(text)
+            return price if price > 0 else None
+        except ValueError:
+            return None
+    
+    def check_price(self, product_id: int) -> Optional[float]:
+        """
+        Check current price for a product.
+        
+        Args:
+            product_id: Database product ID
+            
+        Returns:
+            Current price or None if check fails
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Get product details
+        cursor.execute('SELECT url, name, target_price FROM products WHERE id = ?', (product_id,))
+        product = cursor.fetchone()
         
         if not product:
-            console.print(f"[red]✗ Product ID {product_id} not found[/red]")
-            raise typer.Exit(1)
+            logger.error(f"Product {product_id} not found")
+            conn.close()
+            return None
         
-        old_target = product.target_price
-        db.update_target_price(product_id, target_price)
+        url, name, target_price = product
         
-        console.print(f"[green]✓ Updated target price for '{product.name}'[/green]")
-        console.print(f"  Old target: ${old_target:.2f}")
-        console.print(f"  New target: ${target_price:.2f}")
+        # Get current price
+        price, currency = self.get_price_from_page(url)
         
-    except Exception as e:
-        logger.error(f"Failed to update target price: {e}")
-        console.print(f"[red]✗ Error: {e}[/red]")
-
-
-@app.command()
-def history(
-    product_id: int = typer.Argument(..., help="Product ID"),
-    days: int = typer.Option(30, "--days", "-d", help="Number of days to show"),
-):
-    """View price history for a product"""
-    try:
-        db = Database()
-        product = db.get_product(product_id)
+        if price is not None:
+            # Store price in history
+            cursor.execute('''
+                INSERT INTO price_history (product_id, price, currency)
+                VALUES (?, ?, ?)
+            ''', (product_id, price, currency or 'USD'))
+            
+            # Update last checked timestamp
+            cursor.execute('''
+                UPDATE products SET last_checked = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (product_id,))
+            
+            conn.commit()
+            logger.info(f"Price for {name or url}: ${price:.2f}")
+            
+            # Check if price dropped below target
+            if target_price and price < target_price:
+                self.send_notification(name or url, price, target_price, url)
+            
+        else:
+            logger.warning(f"Could not get price for {name or url}")
         
-        if not product:
-            console.print(f"[red]✗ Product ID {product_id} not found[/red]")
-            raise typer.Exit(1)
+        conn.close()
+        return price
+    
+    def check_all_products(self):
+        """Check prices for all tracked products."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         
-        since = datetime.now() - timedelta(days=days)
-        history = db.get_price_history(product_id, since)
+        cursor.execute('SELECT id FROM products')
+        products = cursor.fetchall()
+        conn.close()
         
-        if not history:
-            console.print(f"[yellow]No price history for '{product.name}'[/yellow]")
+        logger.info(f"Checking {len(products)} products...")
+        
+        for (product_id,) in products:
+            self.check_price(product_id)
+            # Small delay to avoid rate limiting
+            time.sleep(2)
+        
+        logger.info("Price check complete")
+    
+    def send_notification(self, product_name: str, current_price: float, 
+                         target_price: float, url: str):
+        """
+        Send notification when price drops below target.
+        
+        Args:
+            product_name: Name of the product
+            current_price: Current price
+            target_price: Target price threshold
+            url: Product URL
+        """
+        message = f"""
+        🎉 Price Drop Alert! 🎉
+        
+        Product: {product_name}
+        Current Price: ${current_price:.2f}
+        Target Price: ${target_price:.2f}
+        Savings: ${target_price - current_price:.2f}
+        
+        Link: {url}
+        """
+        
+        logger.info(f"PRICE ALERT: {product_name} is now ${current_price:.2f} (target: ${target_price:.2f})")
+        
+        # Send email if configured
+        if self.config.get('email', {}).get('enabled'):
+            self.send_email_notification(product_name, message)
+        
+        # Print to console (can be replaced with desktop notification)
+        print("\n" + "="*50)
+        print(message)
+        print("="*50 + "\n")
+    
+    def send_email_notification(self, subject: str, body: str):
+        """
+        Send email notification.
+        
+        Args:
+            subject: Email subject
+            body: Email body
+        """
+        email_config = self.config.get('email', {})
+        
+        if not all([email_config.get('smtp_server'), 
+                   email_config.get('sender_email'),
+                   email_config.get('sender_password'),
+                   email_config.get('recipient_email')]):
+            logger.warning("Email configuration incomplete")
             return
         
-        console.print(f"\n[bold]Price History: {product.name}[/bold]")
-        console.print(f"Target Price: [yellow]${product.target_price:.2f}[/yellow]\n")
-        
-        table = Table()
-        table.add_column("Date", style="cyan")
-        table.add_column("Price", style="white")
-        table.add_column("Status", style="green")
-        
-        for record in history:
-            date_str = record.checked_at.strftime("%Y-%m-%d %H:%M")
-            price_str = f"${record.price:.2f}"
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = email_config['sender_email']
+            msg['To'] = email_config['recipient_email']
+            msg['Subject'] = f"Price Alert: {subject}"
             
-            if record.price <= product.target_price:
-                status = "[green]✓ Below target[/green]"
-            else:
-                diff = record.price - product.target_price
-                status = f"+${diff:.2f} above"
+            msg.attach(MIMEText(body, 'plain'))
             
-            table.add_row(date_str, price_str, status)
+            with smtplib.SMTP(email_config['smtp_server'], email_config['smtp_port']) as server:
+                server.starttls()
+                server.login(email_config['sender_email'], email_config['sender_password'])
+                server.send_message(msg)
+            
+            logger.info("Email notification sent successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to send email: {e}")
+    
+    def get_price_history(self, product_id: int, limit: int = 30) -> List[Dict]:
+        """
+        Get price history for a product.
         
-        console.print(table)
+        Args:
+            product_id: Product ID
+            limit: Number of records to return
+            
+        Returns:
+            List of price history records
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
         
-        # Show price statistics
-        prices = [h.price for h in history if h.price]
-        if prices:
-            console.print(f"\n[bold]Statistics:[/bold]")
-            console.print(f"  Lowest:  [green]${min(prices):.2f}[/green]")
-            console.print(f"  Highest: [red]${max(prices):.2f}[/red]")
-            console.print(f"  Average: ${sum(prices)/len(prices):.2f}")
+        cursor.execute('''
+            SELECT price, currency, timestamp
+            FROM price_history
+            WHERE product_id = ?
+            ORDER BY timestamp DESC
+            LIMIT ?
+        ''', (product_id, limit))
         
-    except Exception as e:
-        logger.error(f"Failed to get history: {e}")
-        console.print(f"[red]✗ Error: {e}[/red]")
+        history = []
+        for price, currency, timestamp in cursor.fetchall():
+            history.append({
+                'price': price,
+                'currency': currency,
+                'timestamp': timestamp
+            })
+        
+        conn.close()
+        return history
+    
+    def list_products(self) -> List[Dict]:
+        """
+        List all tracked products.
+        
+        Returns:
+            List of product dictionaries
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT p.id, p.url, p.name, p.target_price, p.last_checked,
+                   ph.price as latest_price
+            FROM products p
+            LEFT JOIN (
+                SELECT product_id, price, 
+                       ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY timestamp DESC) as rn
+                FROM price_history
+            ) ph ON p.id = ph.product_id AND ph.rn = 1
+        ''')
+        
+        products = []
+        for row in cursor.fetchall():
+            products.append({
+                'id': row[0],
+                'url': row[1],
+                'name': row[2],
+                'target_price': row[3],
+                'last_checked': row[4],
+                'latest_price': row[5]
+            })
+        
+        conn.close()
+        return products
 
 
-@app.command()
-def monitor(
-    once: bool = typer.Option(False, "--once", help="Run once instead of continuously"),
-    interval: Optional[int] = typer.Option(None, "--interval", "-i", help="Check interval in minutes"),
-):
-    """Start monitoring products for price changes"""
-    try:
-        console.print("[bold green]Starting price monitor...[/bold green]")
+def main():
+    """Main function for command-line usage."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Personal Price Tracker')
+    parser.add_argument('action', choices=['add', 'check', 'list', 'history'],
+                       help='Action to perform')
+    parser.add_argument('--url', help='Product URL')
+    parser.add_argument('--name', help='Product name')
+    parser.add_argument('--target', type=float, help='Target price')
+    parser.add_argument('--id', type=int, help='Product ID')
+    
+    args = parser.parse_args()
+    
+    tracker = PriceTracker()
+    
+    if args.action == 'add':
+        if not args.url:
+            print("Error: URL is required for adding a product")
+            return
         
-        monitor = PriceMonitor()
+        product_id = tracker.add_product(args.url, args.name, args.target)
+        print(f"Product added with ID: {product_id}")
         
-        if once:
-            console.print("[yellow]Running single check...[/yellow]")
-            monitor.check_all_products()
-            console.print("[green]✓ Check complete![/green]")
+        # Check price immediately
+        price = tracker.check_price(product_id)
+        if price:
+            print(f"Current price: ${price:.2f}")
+    
+    elif args.action == 'check':
+        if args.id:
+            tracker.check_price(args.id)
         else:
-            console.print(f"[yellow]Monitoring continuously (Ctrl+C to stop)[/yellow]")
-            monitor.start(interval_minutes=interval)
-            
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Monitoring stopped[/yellow]")
-    except Exception as e:
-        logger.error(f"Monitor error: {e}")
-        console.print(f"[red]✗ Error: {e}[/red]")
-
-
-@app.command()
-def check(product_id: Optional[int] = typer.Argument(None, help="Check specific product or all")):
-    """Manually check product prices"""
-    try:
-        monitor = PriceMonitor()
-        
-        if product_id:
-            console.print(f"[yellow]Checking product {product_id}...[/yellow]")
-            updated = monitor.check_product(product_id)
-            if updated:
-                console.print(f"[green]✓ Price updated: ${updated:.2f}[/green]")
-            else:
-                console.print(f"[red]✗ Failed to check price[/red]")
+            tracker.check_all_products()
+    
+    elif args.action == 'list':
+        products = tracker.list_products()
+        if not products:
+            print("No products being tracked")
         else:
-            console.print("[yellow]Checking all products...[/yellow]")
-            results = monitor.check_all_products()
-            console.print(f"[green]✓ Checked {results['checked']} products[/green]")
-            if results['errors']:
-                console.print(f"[yellow]⚠ {results['errors']} errors occurred[/yellow]")
-            if results['alerts']:
-                console.print(f"[green]🔔 {results['alerts']} price alerts sent![/green]")
-                
-    except Exception as e:
-        logger.error(f"Check error: {e}")
-        console.print(f"[red]✗ Error: {e}[/red]")
+            print("\nTracked Products:")
+            print("-" * 80)
+            for p in products:
+                print(f"ID: {p['id']}")
+                print(f"Name: {p['name'] or 'N/A'}")
+                print(f"URL: {p['url']}")
+                print(f"Target Price: ${p['target_price']:.2f}" if p['target_price'] else "Target Price: Not set")
+                print(f"Latest Price: ${p['latest_price']:.2f}" if p['latest_price'] else "Latest Price: Not checked")
+                print(f"Last Checked: {p['last_checked'] or 'Never'}")
+                print("-" * 80)
+    
+    elif args.action == 'history':
+        if not args.id:
+            print("Error: Product ID is required for history")
+            return
+        
+        history = tracker.get_price_history(args.id)
+        if not history:
+            print("No price history available")
+        else:
+            print("\nPrice History:")
+            print("-" * 40)
+            for record in history:
+                print(f"{record['timestamp']}: ${record['price']:.2f} {record['currency']}")
 
 
 if __name__ == "__main__":
-    app()
+    main()
