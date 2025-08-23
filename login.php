@@ -1,15 +1,20 @@
 <?php
-session_start();
-$correct_passphrase = "44747"; // Change this to your desired passphrase
+// Include configuration
+require_once 'config.php';
 
 // Check if form submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    if (isset($_POST["passphrase"]) && $_POST["passphrase"] === $correct_passphrase) {
-        // Set cookie for authentication
-        setcookie("parker_authenticated", "true", time() + 3600, "/parker/"); // Cookie lasts 1 hour
+    if (isset($_POST["passphrase"]) && $_POST["passphrase"] === AUTH_PASSPHRASE) {
+        // Set cookie for authentication with more secure flags
+        setcookie("parker_authenticated", "true", [
+            'expires' => time() + 3600,
+            'path' => "/parker/",
+            'httponly' => true,
+            'secure' => true
+        ]);
 
-        // Always redirect to me.html after successful authentication
-        header("Location: /parker/me.html");
+        // Fix: Changed redirect from me.html to me.php
+        header("Location: /parker/me.php");
         exit;
     } else {
         $error = "Incorrect passphrase";
@@ -24,75 +29,107 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parker - Authentication Required</title>
+    <link rel="stylesheet" href="/parker/assets/css/style.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-
         .login-container {
             background: white;
             padding: 30px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: var(--card-radius);
+            box-shadow: var(--shadow-md);
             max-width: 400px;
             width: 100%;
+            margin: 10vh auto;
         }
 
-        h2 {
+        .login-header {
             text-align: center;
-            color: #333;
+            margin-bottom: 20px;
         }
 
-        input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
+        .login-title {
+            color: var(--dark);
+            font-size: 1.8rem;
+            margin-bottom: 10px;
         }
 
-        button {
+        .login-subtitle {
+            color: var(--text-medium);
+            font-size: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+
+        .passphrase-input {
             width: 100%;
-            padding: 10px;
-            background-color: #4CAF50;
+            padding: 12px;
+            border: 2px solid var(--light-accent);
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            transition: border-color var(--transition-normal) ease;
+        }
+
+        .passphrase-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(58, 134, 255, 0.2);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary);
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            font-weight: 500;
             cursor: pointer;
+            transition: background-color var(--transition-normal) ease;
         }
 
-        button:hover {
-            background-color: #45a049;
+        .submit-btn:hover,
+        .submit-btn:focus {
+            background-color: var(--primary-dark);
         }
 
-        .error {
-            color: red;
+        .error-message {
+            color: var(--danger);
             margin-bottom: 15px;
             text-align: center;
+            padding: 10px;
+            background-color: rgba(229, 62, 62, 0.1);
+            border-radius: var(--border-radius);
         }
     </style>
 </head>
 
 <body>
     <div class="login-container">
-        <h2>Authentication Required</h2>
+        <div class="login-header">
+            <h1 class="login-title">Parker Directory</h1>
+            <p class="login-subtitle">Authentication Required</p>
+        </div>
+
         <?php if (isset($error)): ?>
-            <div class="error"><?php echo $error; ?></div>
+            <div class="error-message" role="alert"><?php echo $error; ?></div>
         <?php endif; ?>
+
         <form method="post">
-            <div>
-                <input type="password" name="passphrase" placeholder="Enter passphrase" required>
+            <div class="form-group">
+                <label for="passphrase" class="form-label">Enter Passphrase</label>
+                <input type="password" id="passphrase" name="passphrase" class="passphrase-input" placeholder="Enter passphrase" required autocomplete="current-password">
             </div>
-            <button type="submit">Submit</button>
+            <button type="submit" class="submit-btn">Access Directory</button>
         </form>
     </div>
 </body>
-
 </html>

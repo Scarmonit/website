@@ -1,441 +1,40 @@
 <?php
-// Check for authentication cookie
-if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated'] !== 'true') {
-    header("Location: /parker/login.php");
-    exit;
-}
-?>
+// Include authentication and config
+require_once 'includes/auth.php';
+require_once 'includes/config.php';
+require_once 'includes/functions.php';
 
+// Get current folder from query string
+$currentFolder = isset($_GET['folder']) ? $_GET['folder'] : '';
+?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Parker - Directory</title>
-    <style>
-        /* Mobile-first CSS reset and base styles */
-        * {
-            box-sizing: border-box;
-        }
-        
-        :root {
-            /* CSS custom properties for consistent mobile spacing */
-            --mobile-padding: 4vw;
-            --desktop-padding: 20px;
-            --touch-target: 44px;
-            --border-radius: clamp(4px, 1vw, 8px);
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            /* Mobile-first padding using viewport units */
-            padding: var(--mobile-padding);
-            max-width: min(900px, 95vw);
-            margin: 0 auto;
-            background-color: #f8f9fa;
-            color: #212529;
-            /* Fluid font size for better mobile readability */
-            font-size: clamp(14px, 4vw, 16px);
-        }
-
-        .container {
-            background-color: white;
-            border-radius: var(--border-radius);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-            /* Ensure full width on very small screens */
-            min-width: 0;
-        }
-        
-        header {
-            background-color: #343a40;
-            color: white;
-            /* Mobile-optimized padding with better touch spacing */
-            padding: clamp(12px, 3vw, 20px);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: clamp(10px, 3vw, 15px);
-            /* Better mobile header stacking */
-            flex-direction: column;
-        }
-        
-        nav ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            display: flex;
-            gap: clamp(8px, 2vw, 20px);
-            flex-wrap: wrap;
-            /* Center navigation on mobile */
-            justify-content: center;
-            width: 100%;
-        }
-        
-        nav a {
-            text-decoration: none;
-            color: #adb5bd;
-            font-weight: 500;
-            /* Enhanced touch targets for mobile */
-            padding: clamp(12px, 3vw, 12px) clamp(16px, 4vw, 18px);
-            border-radius: var(--border-radius);
-            transition: all 0.3s ease;
-            /* Minimum touch target size */
-            min-height: var(--touch-target);
-            min-width: var(--touch-target);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            /* Better text sizing for mobile */
-            font-size: clamp(14px, 3.5vw, 16px);
-        }
-        
-        nav a:hover,
-        nav a:focus {
-            color: white;
-            background-color: rgba(255,255,255,0.1);
-            outline: 2px solid #007bff;
-            outline-offset: 2px;
-        }
-        
-        nav a.active {
-            color: white;
-            background-color: #007bff;
-        }
-        
-        .logout-btn {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            /* Enhanced mobile touch target */
-            padding: clamp(12px, 3vw, 12px) clamp(20px, 5vw, 24px);
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-size: clamp(14px, 3.5vw, 16px);
-            text-decoration: none;
-            font-weight: 500;
-            transition: background-color 0.3s ease;
-            /* Ensure proper touch target */
-            min-height: var(--touch-target);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .logout-btn:hover,
-        .logout-btn:focus {
-            background-color: #c82333;
-            outline: 2px solid #fff;
-            outline-offset: 2px;
-        }
-        
-        main {
-            /* Mobile-first padding with viewport-based scaling */
-            padding: clamp(16px, 5vw, 30px);
-        }
-        
-        h1 {
-            color: #343a40;
-            margin-top: 0;
-            margin-bottom: clamp(12px, 3vw, 20px);
-            /* Fluid heading size for better mobile scaling */
-            font-size: clamp(1.5rem, 6vw, 2.2rem);
-            font-weight: 600;
-            /* Better line height for mobile readability */
-            line-height: 1.2;
-        }
-        
-        .welcome-message {
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-            border-radius: var(--border-radius);
-            /* Mobile-optimized padding */
-            padding: clamp(12px, 4vw, 20px);
-            margin-bottom: clamp(20px, 5vw, 30px);
-            color: #0c5460;
-            /* Better mobile font size */
-            font-size: clamp(14px, 3.8vw, 16px);
-        }
-        
-        .directory-section {
-            margin-top: clamp(20px, 5vw, 30px);
-        }
-        
-        .directory-section h2 {
-            color: #343a40;
-            margin-bottom: clamp(15px, 4vw, 25px);
-            /* Responsive heading size */
-            font-size: clamp(1.25rem, 5vw, 1.75rem);
-            font-weight: 600;
-            border-bottom: 2px solid #dee2e6;
-            padding-bottom: clamp(8px, 2vw, 12px);
-            line-height: 1.3;
-        }
-        
-        .file-grid {
-            display: grid;
-            /* Mobile-first grid with better small screen handling */
-            grid-template-columns: 1fr;
-            gap: clamp(12px, 3vw, 18px);
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        
-        .file-item {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: var(--border-radius);
-            transition: all 0.3s ease;
-            overflow: hidden;
-            /* Better mobile shadow */
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .file-item:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border-color: #007bff;
-        }
-        
-        .file-link {
-            display: block;
-            /* Enhanced mobile touch area */
-            padding: clamp(16px, 4vw, 24px);
-            text-decoration: none;
-            color: #343a40;
-            height: 100%;
-            /* Minimum touch target for mobile */
-            min-height: var(--touch-target);
-            display: flex;
-            align-items: center;
-            gap: clamp(12px, 3vw, 16px);
-        }
-        
-        .file-link:focus {
-            outline: 2px solid #007bff;
-            outline-offset: -2px;
-        }
-        
-        .file-icon {
-            /* Responsive icon size for mobile */
-            font-size: clamp(1.8rem, 6vw, 2.5rem);
-            flex-shrink: 0;
-            line-height: 1;
-        }
-        
-        .file-info {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .file-name {
-            font-weight: 600;
-            /* Mobile-optimized text size */
-            font-size: clamp(1rem, 4vw, 1.2rem);
-            margin-bottom: clamp(4px, 1vw, 8px);
-            word-break: break-word;
-            line-height: 1.3;
-        }
-        
-        .file-type {
-            /* Better mobile readability */
-            font-size: clamp(0.8rem, 3vw, 0.95rem);
-            color: #6c757d;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .empty-directory {
-            text-align: center;
-            padding: clamp(30px, 8vw, 50px);
-            color: #6c757d;
-            font-style: italic;
-            font-size: clamp(14px, 4vw, 16px);
-        }
-        
-        /* Enhanced mobile responsiveness with more breakpoints */
-        @media (min-width: 480px) {
-            /* Small tablets and large phones */
-            .file-grid {
-                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            }
-            
-            .file-link {
-                flex-direction: column;
-                text-align: center;
-                align-items: center;
-            }
-            
-            .file-info {
-                width: 100%;
-            }
-        }
-        
-        @media (min-width: 768px) {
-            /* Tablets and small desktops */
-            body {
-                padding: var(--desktop-padding);
-                font-size: 16px;
-            }
-            
-            header {
-                flex-direction: row;
-                justify-content: space-between;
-            }
-            
-            nav ul {
-                width: auto;
-                justify-content: flex-start;
-            }
-            
-            .file-grid {
-                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                gap: 20px;
-            }
-            
-            .file-link {
-                flex-direction: column;
-                text-align: center;
-                padding: 24px;
-            }
-        }
-        
-        @media (min-width: 1024px) {
-            /* Large screens */
-            .file-grid {
-                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                gap: 24px;
-            }
-        }
-        
-        /* Enhanced focus styles for better mobile accessibility */
-        *:focus {
-            outline: 2px solid #007bff;
-            outline-offset: 2px;
-        }
-        
-        /* Better mobile skip link */
-        .skip-link {
-            position: absolute;
-            top: -60px;
-            left: clamp(6px, 2vw, 12px);
-            background: #007bff;
-            color: white;
-            padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
-            text-decoration: none;
-            border-radius: var(--border-radius);
-            z-index: 1000;
-            font-size: clamp(14px, 3.5vw, 16px);
-            min-height: var(--touch-target);
-            display: flex;
-            align-items: center;
-        }
-        
-        .skip-link:focus {
-            top: clamp(6px, 2vw, 12px);
-        }
-        
-        /* Touch device optimizations */
-        @media (hover: none) and (pointer: coarse) {
-            /* Remove hover effects on touch devices */
-            .file-item:hover {
-                transform: none;
-            }
-            
-            /* Increase touch targets on touch devices */
-            nav a,
-            .logout-btn,
-            .file-link {
-                min-height: 48px;
-            }
-        }
-        
-        /* Drag and drop styles */
-        .file-item[draggable="true"] {
-            cursor: grab;
-        }
-        
-        .file-item[draggable="true"]:active {
-            cursor: grabbing;
-        }
-        
-        .file-item.dragging {
-            opacity: 0.5;
-            transform: rotate(5deg);
-            z-index: 1000;
-        }
-        
-        .file-item[data-drop-target="true"] {
-            position: relative;
-        }
-        
-        .file-item[data-drop-target="true"].drag-over {
-            border: 2px dashed #007bff;
-            background-color: #e3f2fd;
-            transform: scale(1.02);
-        }
-        
-        .file-item[data-drop-target="true"].drag-over .file-icon {
-            animation: folderPulse 0.6s infinite alternate;
-        }
-        
-        @keyframes folderPulse {
-            from { transform: scale(1); }
-            to { transform: scale(1.1); }
-        }
-        
-        .folder-link {
-            cursor: pointer;
-        }
-        
-        .folder-link:hover .file-icon {
-            transform: scale(1.05);
-        }
-        
-        /* Visual feedback for successful operations */
-        .file-item.move-success {
-            border: 2px solid #28a745;
-            background-color: #d4edda;
-        }
-        
-        .file-item.move-error {
-            border: 2px solid #dc3545;
-            background-color: #f8d7da;
-        }
-        
-        /* Mobile drag and drop adjustments */
-        @media (max-width: 768px) {
-            .file-item[data-drop-target="true"].drag-over {
-                transform: scale(1.05);
-                border-width: 3px;
-            }
-            
-            .file-item.dragging {
-                transform: scale(0.95) rotate(3deg);
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/parker/assets/css/style.css">
+    <link rel="stylesheet" href="/parker/assets/css/dark-mode.css">
 </head>
-
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
     
     <div class="container">
-        <header role="banner">
-            <nav role="navigation" aria-label="Main navigation">
-                <ul>
-                    <li><a href="index.php" class="active" aria-current="page">Home</a></li>
-                    <li><a href="file-viewer.php">File Viewer</a></li>
-                    <li><a href="me.php">About Me</a></li>
-                </ul>
-            </nav>
-            <a href="logout.php" class="logout-btn" aria-label="Logout from Parker Directory">Logout</a>
-        </header>
+        <?php include 'views/components/navbar.php'; ?>
+        
+        <!-- Global search bar -->
+        <div class="global-search-container">
+            <div class="search-wrapper">
+                <input type="text" id="globalFileSearch" class="global-search-input" placeholder="Search files and folders..." aria-label="Search all files and folders">
+                <button type="button" id="clearSearch" class="clear-search-btn" aria-label="Clear search">×</button>
+                <span class="global-search-icon" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                </span>
+            </div>
+            <div id="searchResults" class="search-results-count" aria-live="polite"></div>
+        </div>
         
         <main id="main-content" role="main">
             <h1>Parker Directory</h1>
@@ -444,388 +43,206 @@ if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated']
                 <p><strong>Welcome!</strong> You have successfully authenticated and can now access the directory contents.</p>
             </div>
 
-            <section class="directory-section">
-                <h2>Directory Contents</h2>
+            <!-- Modern directory controls with filter pills -->
+            <div class="directory-controls">
+                <div class="search-container">
+                    <input type="text" id="fileSearch" class="search-input" placeholder="Search files..." aria-label="Search files">
+                    <span class="search-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                        </svg>
+                    </span>
+                </div>
                 
-                <?php
-                // Display directory contents
-                $dir = "./";
-                $files = scandir($dir);
-                $validFiles = [];
+                <!-- Filter buttons replaced with toggle pills -->
+                <div class="filter-pills" id="fileTypeFilters">
+                    <button class="filter-pill active" data-filter="all">All Files</button>
+                    <button class="filter-pill" data-filter="folder">Folders</button>
+                    <button class="filter-pill" data-filter="document">Documents</button>
+                    <button class="filter-pill" data-filter="image">Images</button>
+                    <button class="filter-pill" data-filter="code">Code</button>
+                </div>
                 
-                // Filter files
-                foreach ($files as $file) {
-                    if ($file != "." && $file != ".." && $file != "login.php" && $file != ".htaccess") {
-                        $validFiles[] = $file;
-                    }
-                }
+                <!-- Sort options -->
+                <div class="sort-options">
+                    <label for="fileSort" class="sort-label">Sort by:</label>
+                    <div class="sort-dropdown-wrapper">
+                        <select id="fileSort" class="sort-dropdown" aria-label="Sort files">
+                            <option value="name-asc">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
+                            <option value="date-desc">Date (New-Old)</option>
+                            <option value="date-asc">Date (Old-New)</option>
+                            <option value="size-desc">Size (Large-Small)</option>
+                            <option value="size-asc">Size (Small-Large)</option>
+                        </select>
+                    </div>
+                </div>
                 
-                if (empty($validFiles)) {
-                    echo '<div class="empty-directory">';
-                    echo '<p>No files found in the directory.</p>';
-                    echo '</div>';
-                } else {
-                    echo '<ul class="file-grid" role="list">';
+                <!-- View mode toggle -->
+                <div class="view-mode-toggle" role="group" aria-label="Change view mode">
+                    <button id="gridViewBtn" class="view-mode-btn active" aria-pressed="true" title="Grid View">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5v-3z"/>
+                        </svg>
+                        <span class="sr-only">Grid View</span>
+                    </button>
+                    <button id="listViewBtn" class="view-mode-btn" aria-pressed="false" title="List View">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M2 2.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5H2zM3 3H2v1h1V3z"/>
+                            <path d="M5 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM5.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 4a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9z"/>
+                            <path fill-rule="evenodd" d="M1.5 7a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V7zM2 7h1v1H2V7zm0 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5H2zm1 .5H2v1h1v-1z"/>
+                        </svg>
+                        <span class="sr-only">List View</span>
+                    </button>
+                </div>
+                
+                <!-- Action buttons -->
+                <div class="action-buttons">
+                    <button id="createFolderBtn" class="btn btn-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a1.99 1.99 0 0 1 .342-1.31zM2.19 4a1 1 0 0 0-.996 1.09l.637 7a1 1 0 0 0 .995.91h10.348a1 1 0 0 0 .995-.91l.637-7A1 1 0 0 0 13.81 4H2.19z"/>
+                            <path d="M8.5 7a.5.5 0 0 1 .5.5V9h1.5a.5.5 0 0 1 0 1H9v1.5a.5.5 0 0 1-1 0V10H6.5a.5.5 0 0 1 0-1H8V7.5a.5.5 0 0 1 .5-.5z"/>
+                        </svg>
+                        Create Folder
+                    </button>
                     
-                    foreach ($validFiles as $file) {
-                        $fileExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                        $fileName = htmlspecialchars($file);
-                        $fileLink = htmlspecialchars($file);
-                        
-                        // Determine file icon based on extension
-                        $icon = '📄'; // default
-                        $isFolder = false;
-                        
-                        // Check if item is a directory
-                        if (is_dir($dir . $file)) {
-                            $icon = '📁';
-                            $fileType = 'Folder';
-                            $isFolder = true;
-                        } else {
-                            switch ($fileExtension) {
-                                case 'php':
-                                    $icon = '🐘';
-                                    $fileType = 'PHP File';
-                                    break;
-                                case 'html':
-                                case 'htm':
-                                    $icon = '🌐';
-                                    $fileType = 'HTML File';
-                                    break;
-                                case 'css':
-                                    $icon = '🎨';
-                                    $fileType = 'CSS File';
-                                    break;
-                                case 'js':
-                                    $icon = '⚡';
-                                    $fileType = 'JavaScript File';
-                                    break;
-                                case 'txt':
-                                    $icon = '📝';
-                                    $fileType = 'Text File';
-                                    break;
-                                case 'pdf':
-                                    $icon = '📕';
-                                    $fileType = 'PDF Document';
-                                    break;
-                                case 'jpg':
-                                case 'jpeg':
-                                case 'png':
-                                case 'gif':
-                                    $icon = '🖼️';
-                                    $fileType = 'Image File';
-                                    break;
-                                default:
-                                    $icon = '📄';
-                                    $fileType = strtoupper($fileExtension) . ' File';
-                            }
-                            
-                            if (empty($fileExtension)) {
-                                $fileType = 'File';
-                            }
-                        }
-                        
-                        // Add drag-and-drop attributes
-                        $dragAttributes = '';
-                        $dropAttributes = '';
-                        
-                        if ($isFolder) {
-                            // Folders are drop targets
-                            $dropAttributes = 'data-drop-target="true" data-folder-name="' . htmlspecialchars($file) . '"';
-                        } else {
-                            // Files are draggable
-                            $dragAttributes = 'draggable="true" data-file-name="' . htmlspecialchars($file) . '"';
-                        }
-                        
-                        echo '<li class="file-item" ' . $dragAttributes . ' ' . $dropAttributes . '>';
-                        
-                        if ($isFolder) {
-                            echo '<div class="file-link folder-link" aria-label="Open folder ' . $fileName . '">';
-                        } else {
-                            echo '<a href="' . $fileLink . '" class="file-link" aria-label="Open ' . $fileName . '">';
-                        }
-                        
-                        echo '<span class="file-icon" aria-hidden="true">' . $icon . '</span>';
-                        echo '<div class="file-info">';
-                        echo '<div class="file-name">' . $fileName . '</div>';
-                        echo '<div class="file-type">' . $fileType . '</div>';
-                        echo '</div>';
-                        
-                        if ($isFolder) {
-                            echo '</div>';
-                        } else {
-                            echo '</a>';
-                        }
-                        
-                        echo '</li>';
-                    }
+                    <button id="uploadButton" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                        </svg>
+                        Upload File
+                    </button>
+                </div>
+            </div>
+
+            <!-- Breadcrumb navigation -->
+            <div class="breadcrumb-navigation">
+                <a href="index.php" class="breadcrumb-item root">Home</a>
+                <?php if (!empty($currentFolder)): ?>
+                    <?php
+                    $pathParts = explode('/', rtrim($currentFolder, '/'));
+                    $cumulativePath = '';
                     
-                    echo '</ul>';
-                }
-                ?>
-            </section>
+                    foreach ($pathParts as $part) {
+                        $cumulativePath .= $part . '/';
+                        echo '<span class="breadcrumb-separator">/</span>';
+                        echo '<a href="index.php?folder=' . urlencode(rtrim($cumulativePath, '/')) . '" class="breadcrumb-item">' . htmlspecialchars($part) . '</a>';
+                    }
+                    ?>
+                <?php endif; ?>
+            </div>
+            
+            <!-- Modern drag-and-drop upload zone -->
+            <div id="dropZone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <div class="drop-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                        </svg>
+                    </div>
+                    <h3>Drag & Drop Files Here</h3>
+                    <p>or</p>
+                    <label for="fileInputDrop" class="btn btn-primary">Choose Files</label>
+                    <input type="file" id="fileInputDrop" multiple style="display:none">
+                </div>
+            </div>
+            
+            <!-- File and folder listing container - will be populated by AJAX -->
+            <div id="directoryContents" class="directory-contents">
+                <!-- Loading spinner -->
+                <div id="loadingSpinner" class="loading-spinner">
+                    <div class="spinner"></div>
+                    <p>Loading content...</p>
+                </div>
+            </div>
+            
+            <!-- Selection toolbar -->
+            <div id="selectionToolbar" class="selection-toolbar">
+                <div class="selection-count"><span id="selectedCount">0</span> items selected</div>
+                <div class="selection-actions">
+                    <button id="downloadSelected" class="btn btn-sm btn-secondary">Download</button>
+                    <button id="moveSelected" class="btn btn-sm btn-secondary">Move</button>
+                    <button id="deleteSelected" class="btn btn-sm btn-danger">Delete</button>
+                </div>
+            </div>
         </main>
+        
+        <?php include 'views/components/footer.php'; ?>
     </div>
     
-    <script>
-        // Drag and Drop File Organization System
-        document.addEventListener('DOMContentLoaded', function() {
-            let draggedElement = null;
-            let draggedFileName = null;
-            
-            // Get all draggable files and drop targets
-            const draggableFiles = document.querySelectorAll('.file-item[draggable="true"]');
-            const dropTargets = document.querySelectorAll('.file-item[data-drop-target="true"]');
-            
-            // Add drag event listeners to files
-            draggableFiles.forEach(file => {
-                // Drag start - when user starts dragging a file
-                file.addEventListener('dragstart', function(e) {
-                    draggedElement = this;
-                    draggedFileName = this.dataset.fileName;
-                    this.classList.add('dragging');
-                    
-                    // Set drag data for accessibility
-                    e.dataTransfer.setData('text/plain', draggedFileName);
-                    e.dataTransfer.effectAllowed = 'move';
-                    
-                    console.log('Started dragging:', draggedFileName);
-                });
+    <!-- Toast notifications container -->
+    <div id="toastContainer" class="toast-container"></div>
+    
+    <!-- Modals -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title">Upload Files</h3>
+                <button type="button" class="modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-dropzone">
+                    <div class="upload-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                        </svg>
+                    </div>
+                    <h4>Drag & Drop Files Here</h4>
+                    <p>or</p>
+                    <label for="fileInput" class="btn btn-primary">Select Files</label>
+                    <input type="file" id="fileInput" multiple style="display:none">
+                </div>
                 
-                // Drag end - when user stops dragging
-                file.addEventListener('dragend', function(e) {
-                    this.classList.remove('dragging');
-                    
-                    // Remove drag-over class from all drop targets
-                    dropTargets.forEach(target => {
-                        target.classList.remove('drag-over');
-                    });
-                    
-                    draggedElement = null;
-                    draggedFileName = null;
-                });
-            });
-            
-            // Add drop event listeners to folders
-            dropTargets.forEach(folder => {
-                // Prevent default drag over behavior
-                folder.addEventListener('dragover', function(e) {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    
-                    // Add visual feedback
-                    this.classList.add('drag-over');
-                });
+                <div id="uploadProgress" class="upload-progress-container" style="display:none;">
+                    <h4>Uploading Files</h4>
+                    <div id="uploadProgressList" class="upload-progress-list"></div>
+                </div>
                 
-                // Remove visual feedback when leaving drop zone
-                folder.addEventListener('dragleave', function(e) {
-                    // Only remove if we're not moving to a child element
-                    if (!this.contains(e.relatedTarget)) {
-                        this.classList.remove('drag-over');
-                    }
-                });
-                
-                // Handle the drop event
-                folder.addEventListener('drop', function(e) {
-                    e.preventDefault();
-                    this.classList.remove('drag-over');
-                    
-                    if (draggedElement && draggedFileName) {
-                        const targetFolderName = this.dataset.folderName;
-                        
-                        // Simulate file move operation
-                        moveFileToFolder(draggedFileName, targetFolderName, draggedElement, this);
-                    }
-                });
-                
-                // Add click event for folder navigation (bonus feature)
-                const folderLink = folder.querySelector('.folder-link');
-                if (folderLink) {
-                    folderLink.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        const folderName = folder.dataset.folderName;
-                        navigateToFolder(folderName);
-                    });
-                }
-            });
-            
-            // Simulated backend file move operation
-            function moveFileToFolder(fileName, folderName, fileElement, folderElement) {
-                console.log(`Moving ${fileName} to ${folderName}`);
-                
-                // Show loading state
-                fileElement.style.opacity = '0.6';
-                fileElement.style.pointerEvents = 'none';
-                
-                // REAL BACKEND INTEGRATION WOULD GO HERE:
-                // fetch('move_file.php', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ fileName, folderName })
-                // })
-                // .then(response => response.json())
-                // .then(data => {
-                //     if (data.success) {
-                //         showMoveSuccess(fileElement, folderElement, fileName, folderName);
-                //     } else {
-                //         showMoveError(fileElement, fileName, folderName);
-                //     }
-                // })
-                // .catch(error => showMoveError(fileElement, fileName, folderName));
-                
-                // Simulate API call delay
-                setTimeout(() => {
-                    // Simulate success/failure (90% success rate for demo)
-                    const success = Math.random() > 0.1;
-                    
-                    if (success) {
-                        // Success: Remove file from current view
-                        showMoveSuccess(fileElement, folderElement, fileName, folderName);
-                        
-                        // Remove file after animation
-                        setTimeout(() => {
-                            fileElement.remove();
-                        }, 1500);
-                        
-                    } else {
-                        // Error: Show error feedback
-                        showMoveError(fileElement, fileName, folderName);
-                    }
-                    
-                    // Reset element state
-                    fileElement.style.opacity = '';
-                    fileElement.style.pointerEvents = '';
-                    
-                }, 500); // Simulate network delay
-            }
-            
-            // Show success feedback
-            function showMoveSuccess(fileElement, folderElement, fileName, folderName) {
-                // Animate file moving towards folder
-                fileElement.classList.add('move-success');
-                folderElement.classList.add('move-success');
-                
-                // Show success message
-                showNotification(`✅ Moved "${fileName}" to "${folderName}"`, 'success');
-                
-                // Clean up classes
-                setTimeout(() => {
-                    folderElement.classList.remove('move-success');
-                }, 1500);
-            }
-            
-            // Show error feedback
-            function showMoveError(fileElement, fileName, folderName) {
-                fileElement.classList.add('move-error');
-                
-                // Show error message
-                showNotification(`❌ Failed to move "${fileName}" to "${folderName}"`, 'error');
-                
-                // Clean up classes
-                setTimeout(() => {
-                    fileElement.classList.remove('move-error');
-                }, 2000);
-            }
-            
-            // Folder navigation (bonus feature)
-            function navigateToFolder(folderName) {
-                console.log(`Navigating to folder: ${folderName}`);
-                showNotification(`📁 Opening "${folderName}"...`, 'info');
-                
-                // In a real app, this would navigate to the folder
-                // For demo purposes, we'll just show a message
-                setTimeout(() => {
-                    showNotification(`This would open the "${folderName}" folder`, 'info');
-                }, 1000);
-            }
-            
-            // Notification system
-            function showNotification(message, type = 'info') {
-                // Remove existing notification
-                const existing = document.querySelector('.file-notification');
-                if (existing) {
-                    existing.remove();
-                }
-                
-                // Create notification element
-                const notification = document.createElement('div');
-                notification.className = `file-notification file-notification-${type}`;
-                
-                // Detect mobile for responsive positioning
-                const isMobile = window.innerWidth <= 768;
-                
-                notification.style.cssText = `
-                    position: fixed;
-                    top: ${isMobile ? '10px' : '20px'};
-                    ${isMobile ? 'left: 10px; right: 10px;' : 'right: 20px; max-width: 300px;'}
-                    background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : '#d1ecf1'};
-                    border: 1px solid ${type === 'success' ? '#c3e6cb' : type === 'error' ? '#f5c6cb' : '#bee5eb'};
-                    color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : '#0c5460'};
-                    padding: ${isMobile ? '10px 15px' : '12px 20px'};
-                    border-radius: 6px;
-                    font-size: ${isMobile ? '13px' : '14px'};
-                    z-index: 10000;
-                    word-wrap: break-word;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    transform: translateX(100%);
-                    transition: transform 0.3s ease;
-                `;
-                
-                notification.textContent = message;
-                document.body.appendChild(notification);
-                
-                // Animate in
-                setTimeout(() => {
-                    notification.style.transform = 'translateX(0)';
-                }, 10);
-                
-                // Auto remove after delay
-                setTimeout(() => {
-                    notification.style.transform = 'translateX(100%)';
-                    setTimeout(() => {
-                        if (notification.parentNode) {
-                            notification.remove();
-                        }
-                    }, 300);
-                }, type === 'error' ? 4000 : 3000);
-            }
-            
-            // Touch device support for mobile
-            if ('ontouchstart' in window) {
-                console.log('Touch device detected - drag and drop available');
-                
-                // Add touch-specific instructions
-                const firstDraggable = document.querySelector('.file-item[draggable="true"]');
-                if (firstDraggable) {
-                    showNotification('💡 Long press and drag files to folders', 'info');
-                }
-            }
-            
-            // Keyboard accessibility for drag and drop
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && draggedElement) {
-                    // Cancel current drag operation
-                    draggedElement.classList.remove('dragging');
-                    dropTargets.forEach(target => {
-                        target.classList.remove('drag-over');
-                    });
-                    draggedElement = null;
-                    draggedFileName = null;
-                    showNotification('Drag operation cancelled', 'info');
-                }
-            });
-            
-            // Log initialization
-            console.log(`File manager initialized with ${draggableFiles.length} files and ${dropTargets.length} folders`);
-            
-            // Show initial tip if there are draggable files and folders
-            if (draggableFiles.length > 0 && dropTargets.length > 0) {
-                setTimeout(() => {
-                    showNotification('💡 Drag files onto folders to organize them', 'info');
-                }, 1500);
-            }
-        });
-    </script>
+                <div class="upload-info">
+                    <p class="upload-note">
+                        <strong>Note:</strong> Maximum file size is 10MB.
+                        <?php if (!empty($currentFolder)): ?>
+                        Files will be uploaded to: <strong><?php echo htmlspecialchars($currentFolder); ?></strong>
+                        <?php else: ?>
+                        Files will be uploaded to the root folder.
+                        <?php endif; ?>
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                <button type="button" id="uploadSubmit" class="btn btn-primary">Upload</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create folder modal -->
+    <div id="createFolderModal" class="modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 class="modal-title">Create New Folder</h3>
+                <button type="button" class="modal-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="folderName">Folder Name:</label>
+                    <input type="text" id="folderName" class="form-control" placeholder="Enter folder name">
+                    <div id="folderNameError" class="error-message" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary modal-cancel">Cancel</button>
+                <button type="button" id="createFolderSubmit" class="btn btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="/parker/assets/js/app.js" type="module"></script>
 </body>
-
 </html>

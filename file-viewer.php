@@ -1,40 +1,71 @@
 <?php
-// Check for authentication cookie
-if (!isset($_COOKIE['parker_authenticated']) || $_COOKIE['parker_authenticated'] !== 'true') {
-    header("Location: /parker/login.php");
-    exit;
-}
+// Include authentication and config
+require_once 'includes/auth.php'; 
+require_once 'includes/config.php';
+require_once 'includes/functions.php';
 
-// Get the file to view from URL parameter
+// File size limit (10MB by default)
+$maxFileSize = defined('MAX_FILE_SIZE') ? MAX_FILE_SIZE : 10 * 1024 * 1024;
+
+// Get the file to view from URL parameter and sanitize
 $fileToView = isset($_GET['file']) ? $_GET['file'] : null;
 $fileContent = '';
 $fileExtension = '';
 $fileName = '';
+$fileSize = 0;
 $error = '';
+$isTextFile = false;
+$isImageFile = false;
+$isMediaFile = false;
+$isPdfFile = false;
 
-// Supported file types for viewing
-$supportedTypes = ['txt', 'md', 'html', 'css', 'js', 'php'];
+// Supported file types
+$supportedTextTypes = ['txt', 'md', 'html', 'css', 'js', 'php', 'json', 'xml', 'csv', 'log', 'yml', 'yaml', 'ini', 'conf', 'sh', 'bat', 'sql'];
+$supportedImageTypes = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+$supportedMediaTypes = ['mp4', 'webm', 'ogg', 'mp3', 'wav'];
+$supportedDocTypes = ['pdf'];
 
 if ($fileToView) {
+    // Sanitize: Remove any directory traversal attempts
+    $fileToView = str_replace(['../', '../', '..\\', '.\\'], '', $fileToView);
     $filePath = "./" . $fileToView;
     
-    // Security check: prevent directory traversal
-    if (strpos($fileToView, '..') !== false || strpos($fileToView, '/') !== false) {
-        $error = "Invalid file path.";
+    // Security check: prevent directory traversal with realpath
+    $realFilePath = realpath($filePath);
+    $realBasePath = realpath('./');
+    
+    if (!$realFilePath || strpos($realFilePath, $realBasePath) !== 0) {
+        $error = "Invalid file path. Security violation detected.";
     } elseif (!file_exists($filePath)) {
-        $error = "File not found.";
+        $error = "File not found: " . htmlspecialchars(basename($fileToView));
     } elseif (!is_file($filePath)) {
-        $error = "Not a valid file.";
+        $error = "Not a valid file: " . htmlspecialchars(basename($fileToView));
     } else {
         $fileExtension = strtolower(pathinfo($fileToView, PATHINFO_EXTENSION));
-        $fileName = $fileToView;
+        $fileName = basename($fileToView); // Use basename for extra safety
+        $fileSize = filesize($filePath);
         
-        if (!in_array($fileExtension, $supportedTypes)) {
-            $error = "File type not supported for viewing.";
-        } else {
-            $fileContent = file_get_contents($filePath);
-            if ($fileContent === false) {
-                $error = "Unable to read file contents.";
+        // Check file size
+        if ($fileSize > $maxFileSize) {
+            $error = "File exceeds the maximum size limit of " . formatFileSize($maxFileSize);
+        } 
+        // Add PHP file restriction
+        elseif ($fileExtension === 'php') {
+            $error = "PHP files cannot be viewed for security reasons";
+        } 
+        else {
+            // Determine file type using the same logic as in index.php
+            $isTextFile = in_array($fileExtension, $supportedTextTypes);
+            $isImageFile = in_array($fileExtension, $supportedImageTypes);
+            $isMediaFile = in_array($fileExtension, $supportedMediaTypes);
+            $isPdfFile = in_array($fileExtension, $supportedDocTypes);
+            
+            // Load file content for text files
+            if ($isTextFile) {
+                $fileContent = file_get_contents($filePath);
+                if ($fileContent === false) {
+                    $error = "Unable to read file contents.";
+                }
             }
         }
     }
@@ -45,450 +76,169 @@ if ($fileToView) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parker - File Viewer</title>
-    <style>
-        /* Mobile-first CSS reset and base styles */
-        * {
-            box-sizing: border-box;
-        }
-        
-        :root {
-            /* CSS custom properties for consistent mobile spacing */
-            --mobile-padding: 4vw;
-            --desktop-padding: 20px;
-            --touch-target: 44px;
-            --border-radius: clamp(4px, 1vw, 8px);
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            /* Mobile-first padding using viewport units */
-            padding: var(--mobile-padding);
-            max-width: min(1200px, 95vw);
-            margin: 0 auto;
-            background-color: #f8f9fa;
-            color: #212529;
-            /* Fluid font size for better mobile readability */
-            font-size: clamp(14px, 4vw, 16px);
-        }
-
-        .container {
-            background-color: white;
-            border-radius: var(--border-radius);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-            /* Ensure full width on very small screens */
-            min-width: 0;
-        }
-        
-        header {
-            background-color: #343a40;
-            color: white;
-            /* Mobile-optimized padding with better touch spacing */
-            padding: clamp(12px, 3vw, 20px);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: clamp(10px, 3vw, 15px);
-            /* Better mobile header stacking */
-            flex-direction: column;
-        }
-        
-        nav ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            display: flex;
-            gap: clamp(8px, 2vw, 20px);
-            flex-wrap: wrap;
-            /* Center navigation on mobile */
-            justify-content: center;
-            width: 100%;
-        }
-        
-        nav a {
-            text-decoration: none;
-            color: #adb5bd;
-            font-weight: 500;
-            /* Enhanced touch targets for mobile */
-            padding: clamp(12px, 3vw, 12px) clamp(16px, 4vw, 18px);
-            border-radius: var(--border-radius);
-            transition: all 0.3s ease;
-            /* Minimum touch target size */
-            min-height: var(--touch-target);
-            min-width: var(--touch-target);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            /* Better text sizing for mobile */
-            font-size: clamp(14px, 3.5vw, 16px);
-        }
-        
-        nav a:hover,
-        nav a:focus {
-            color: white;
-            background-color: rgba(255,255,255,0.1);
-            outline: 2px solid #007bff;
-            outline-offset: 2px;
-        }
-        
-        nav a.active {
-            color: white;
-            background-color: #007bff;
-        }
-        
-        .logout-btn {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            /* Enhanced mobile touch target */
-            padding: clamp(12px, 3vw, 12px) clamp(20px, 5vw, 24px);
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            font-size: clamp(14px, 3.5vw, 16px);
-            text-decoration: none;
-            font-weight: 500;
-            transition: background-color 0.3s ease;
-            /* Ensure proper touch target */
-            min-height: var(--touch-target);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .logout-btn:hover,
-        .logout-btn:focus {
-            background-color: #c82333;
-            outline: 2px solid #fff;
-            outline-offset: 2px;
-        }
-        
-        main {
-            /* Mobile-first padding with viewport-based scaling */
-            padding: clamp(16px, 5vw, 30px);
-        }
-        
-        h1 {
-            color: #343a40;
-            margin-top: 0;
-            margin-bottom: clamp(15px, 4vw, 25px);
-            /* Fluid heading size for better mobile scaling */
-            font-size: clamp(1.5rem, 6vw, 2.2rem);
-            font-weight: 600;
-            /* Better line height for mobile readability */
-            line-height: 1.2;
-        }
-        
-        h2 {
-            color: #343a40;
-            margin-bottom: clamp(12px, 3vw, 20px);
-            font-size: clamp(1.25rem, 5vw, 1.75rem);
-            font-weight: 600;
-            line-height: 1.3;
-        }
-        
-        .file-list {
-            background-color: #f8f9fa;
-            border-radius: var(--border-radius);
-            padding: clamp(16px, 4vw, 25px);
-            margin-bottom: clamp(20px, 5vw, 30px);
-            border-left: 4px solid #007bff;
-        }
-        
-        .file-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: clamp(8px, 2vw, 12px);
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        
-        .file-item {
-            background-color: white;
-            border: 1px solid #dee2e6;
-            border-radius: var(--border-radius);
-            padding: clamp(12px, 3vw, 16px);
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: clamp(8px, 2vw, 12px);
-        }
-        
-        .file-item:hover {
-            border-color: #007bff;
-            background-color: #f0f8ff;
-            transform: translateY(-1px);
-        }
-        
-        .file-link {
-            display: flex;
-            align-items: center;
-            gap: clamp(8px, 2vw, 12px);
-            text-decoration: none;
-            color: #343a40;
-            width: 100%;
-            min-height: var(--touch-target);
-        }
-        
-        .file-icon {
-            font-size: clamp(1.2rem, 4vw, 1.5rem);
-            flex-shrink: 0;
-        }
-        
-        .file-name {
-            font-weight: 500;
-            font-size: clamp(0.9rem, 3.5vw, 1rem);
-            word-break: break-word;
-        }
-        
-        .file-viewer {
-            background-color: #f8f9fa;
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            border: 1px solid #dee2e6;
-        }
-        
-        .file-header {
-            background-color: #343a40;
-            color: white;
-            padding: clamp(12px, 3vw, 16px);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: clamp(8px, 2vw, 12px);
-        }
-        
-        .file-title {
-            font-weight: 600;
-            font-size: clamp(1rem, 4vw, 1.1rem);
-            word-break: break-word;
-        }
-        
-        .file-type-badge {
-            background-color: #007bff;
-            color: white;
-            padding: clamp(4px, 1vw, 6px) clamp(8px, 2vw, 12px);
-            border-radius: calc(var(--border-radius) / 2);
-            font-size: clamp(0.75rem, 3vw, 0.85rem);
-            font-weight: 500;
-            text-transform: uppercase;
-        }
-        
-        .file-content {
-            max-height: 70vh;
-            overflow: auto;
-            background-color: #ffffff;
-        }
-        
-        .code-block {
-            margin: 0;
-            padding: clamp(16px, 4vw, 24px);
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: clamp(12px, 3.5vw, 14px);
-            line-height: 1.5;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            background-color: #ffffff;
-            color: #333;
-            border: none;
-            overflow: visible;
-        }
-        
-        .error-message {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: clamp(12px, 3vw, 16px);
-            border-radius: var(--border-radius);
-            margin-bottom: clamp(15px, 4vw, 20px);
-        }
-        
-        .back-button {
-            display: inline-flex;
-            align-items: center;
-            gap: clamp(6px, 1.5vw, 8px);
-            background-color: #6c757d;
-            color: white;
-            text-decoration: none;
-            padding: clamp(8px, 2vw, 10px) clamp(12px, 3vw, 16px);
-            border-radius: var(--border-radius);
-            font-size: clamp(0.9rem, 3.5vw, 1rem);
-            font-weight: 500;
-            transition: background-color 0.3s ease;
-            margin-bottom: clamp(15px, 4vw, 20px);
-        }
-        
-        .back-button:hover,
-        .back-button:focus {
-            background-color: #5a6268;
-            outline: 2px solid #007bff;
-            outline-offset: 2px;
-        }
-        
-        /* Enhanced mobile responsiveness */
-        @media (min-width: 480px) {
-            .file-grid {
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            }
-        }
-        
-        @media (min-width: 768px) {
-            body {
-                padding: var(--desktop-padding);
-                font-size: 16px;
-            }
-            
-            header {
-                flex-direction: row;
-                justify-content: space-between;
-            }
-            
-            nav ul {
-                width: auto;
-                justify-content: flex-start;
-            }
-            
-            .file-grid {
-                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            }
-        }
-        
-        /* Enhanced focus styles for accessibility */
-        *:focus {
-            outline: 2px solid #007bff;
-            outline-offset: 2px;
-        }
-        
-        /* Skip link for accessibility */
-        .skip-link {
-            position: absolute;
-            top: -60px;
-            left: clamp(6px, 2vw, 12px);
-            background: #007bff;
-            color: white;
-            padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
-            text-decoration: none;
-            border-radius: var(--border-radius);
-            z-index: 1000;
-            font-size: clamp(14px, 3.5vw, 16px);
-            min-height: var(--touch-target);
-            display: flex;
-            align-items: center;
-        }
-        
-        .skip-link:focus {
-            top: clamp(6px, 2vw, 12px);
-        }
-        
-        /* Touch device optimizations */
-        @media (hover: none) and (pointer: coarse) {
-            nav a,
-            .logout-btn,
-            .file-link,
-            .back-button {
-                min-height: 48px;
-            }
-        }
-        
-        /* Syntax highlighting colors */
-        .syntax-keyword { color: #0000ff; font-weight: bold; }
-        .syntax-string { color: #008000; }
-        .syntax-comment { color: #808080; font-style: italic; }
-        .syntax-number { color: #ff0000; }
-        .syntax-tag { color: #800080; }
-        .syntax-attribute { color: #ff0000; }
-    </style>
+    <title>Parker - File Viewer: <?php echo htmlspecialchars($fileName); ?></title>
+    <link rel="stylesheet" href="/parker/assets/css/style.css">
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
     
     <div class="container">
-        <header role="banner">
-            <nav role="navigation" aria-label="Main navigation">
-                <ul>
-                    <li><a href="index.php">Home</a></li>
-                    <li><a href="file-viewer.php" class="active" aria-current="page">File Viewer</a></li>
-                    <li><a href="me.php">About Me</a></li>
-                </ul>
-            </nav>
-            <a href="logout.php" class="logout-btn" aria-label="Logout from Parker Directory">Logout</a>
-        </header>
+        <?php include 'views/components/navbar.php'; ?>
         
         <main id="main-content" role="main">
             <h1>File Viewer</h1>
             
             <?php if ($error): ?>
                 <div class="error-message" role="alert">
-                    <strong>Error:</strong> <?php echo htmlspecialchars($error); ?>
+                    <strong>Error:</strong> <?php echo $error; ?>
                 </div>
-            <?php endif; ?>
-            
-            <?php if ($fileToView && !$error): ?>
-                <a href="file-viewer.php" class="back-button">
-                    ← Back to File List
+                <a href="index.php" class="back-button">
+                    ← Back to Directory
+                </a>
+            <?php elseif ($fileToView): ?>
+                <a href="index.php" class="back-button">
+                    ← Back to Directory
                 </a>
                 
                 <div class="file-viewer">
                     <div class="file-header">
-                        <div class="file-title"><?php echo htmlspecialchars($fileName); ?></div>
+                        <div class="file-title">
+                            <?php echo htmlspecialchars($fileName); ?>
+                            <span class="file-size">(<?php echo formatFileSize($fileSize); ?>)</span>
+                        </div>
                         <div class="file-type-badge"><?php echo strtoupper($fileExtension); ?></div>
                     </div>
                     
                     <div class="file-content">
-                        <pre class="code-block"><code><?php echo htmlspecialchars($fileContent); ?></code></pre>
+                        <?php if ($isTextFile): ?>
+                            <pre class="code-block"><code><?php echo htmlspecialchars($fileContent); ?></code></pre>
+                        <?php elseif ($isImageFile): ?>
+                            <div class="image-viewer">
+                                <img src="<?php echo htmlspecialchars($fileToView); ?>" alt="<?php echo htmlspecialchars($fileName); ?>" class="preview-image">
+                            </div>
+                        <?php elseif ($isMediaFile): ?>
+                            <div class="media-viewer">
+                                <?php if (in_array($fileExtension, ['mp4', 'webm', 'ogg'])): ?>
+                                <video controls class="preview-video">
+                                    <source src="<?php echo htmlspecialchars($fileToView); ?>" type="video/<?php echo $fileExtension === 'mp4' ? 'mp4' : ($fileExtension === 'webm' ? 'webm' : 'ogg'); ?>">
+                                    Your browser does not support the video tag.
+                                </video>
+                                <?php elseif (in_array($fileExtension, ['mp3', 'wav'])): ?>
+                                <audio controls class="preview-audio">
+                                    <source src="<?php echo htmlspecialchars($fileToView); ?>" type="audio/<?php echo $fileExtension; ?>">
+                                    Your browser does not support the audio tag.
+                                </audio>
+                                <?php endif; ?>
+                            </div>
+                        <?php elseif ($isPdfFile): ?>
+                            <div class="pdf-viewer">
+                                <embed src="<?php echo htmlspecialchars($fileToView); ?>" type="application/pdf" width="100%" height="600px" class="preview-pdf">
+                            </div>
+                        <?php else: ?>
+                            <div class="generic-file-info">
+                                <p>This file type (<?php echo strtoupper($fileExtension); ?>) can't be previewed directly in the browser.</p>
+                                <div class="file-actions">
+                                    <a href="<?php echo htmlspecialchars($fileToView); ?>" download class="btn btn-primary">
+                                        Download File
+                                    </a>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 
             <?php else: ?>
                 <div class="file-list">
                     <h2>Select a file to view</h2>
-                    <p>Supported file types: .txt, .md, .html, .css, .js, .php</p>
+                    
+                    <div class="file-controls">
+                        <div class="file-search">
+                            <input type="text" id="fileSearch" placeholder="Search files..." aria-label="Search files">
+                            <span class="file-search-icon" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                                </svg>
+                            </span>
+                        </div>
+                        
+                        <!-- Add view mode toggle -->
+                        <div class="view-mode-toggle" role="group" aria-label="Change view mode">
+                            <button id="gridViewBtn" class="view-mode-btn active" aria-pressed="true" title="Grid View">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5v-3z"/>
+                                </svg>
+                                <span class="sr-only">Grid View</span>
+                            </button>
+                            <button id="listViewBtn" class="view-mode-btn" aria-pressed="false" title="List View">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M2 2.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5H2zM3 3H2v1h1V3z"/>
+                                    <path d="M5 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM5.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 4a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9z"/>
+                                    <path fill-rule="evenodd" d="M1.5 7a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V7zM2 7h1v1H2V7zm0 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5H2zm1 .5H2v1h1v-1z"/>
+                                </svg>
+                                <span class="sr-only">List View</span>
+                            </button>
+                        </div>
+                    </div>
                     
                     <ul class="file-grid" role="list">
                         <?php
-                        $dir = "./";
-                        $files = scandir($dir);
+                        $dirContents = getDirectoryContents("./");
                         $viewableFiles = [];
                         
-                        // Filter for supported file types
-                        foreach ($files as $file) {
-                            if ($file != "." && $file != ".." && $file != "login.php" && $file != ".htaccess" && is_file($dir . $file)) {
-                                $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                                if (in_array($ext, $supportedTypes)) {
-                                    $viewableFiles[] = $file;
-                                }
+                        // We now allow all file types
+                        foreach ($dirContents['files'] as $file) {
+                            if ($file != "login.php" && $file != ".htaccess") {
+                                $viewableFiles[] = $file;
                             }
                         }
                         
                         if (empty($viewableFiles)) {
-                            echo '<li style="text-align: center; padding: 20px; color: #6c757d; font-style: italic;">';
+                            echo '<li class="empty-directory">';
                             echo 'No viewable files found in the directory.';
                             echo '</li>';
                         } else {
                             foreach ($viewableFiles as $file) {
-                                $fileExtension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-                                $fileName = htmlspecialchars($file);
+                                $fileExt = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+                                $fileName = basename($file);
+                                $filePath = "./" . $file;
+                                $fileSize = filesize($filePath);
                                 
-                                // Get appropriate icon
-                                $icon = '📄';
-                                switch ($fileExtension) {
-                                    case 'php': $icon = '🐘'; break;
-                                    case 'html': $icon = '🌐'; break;
-                                    case 'css': $icon = '🎨'; break;
-                                    case 'js': $icon = '⚡'; break;
-                                    case 'txt': $icon = '📝'; break;
-                                    case 'md': $icon = '📖'; break;
+                                // Get appropriate icon based on file type
+                                $icon = '📄'; // default
+                                $isViewable = true;
+                                
+                                if (in_array($fileExt, $supportedTextTypes)) {
+                                    switch ($fileExt) {
+                                        case 'php': $icon = '🐘'; break;
+                                        case 'html': $icon = '🌐'; break;
+                                        case 'css': $icon = '🎨'; break;
+                                        case 'js': $icon = '⚡'; break;
+                                        case 'txt': $icon = '📝'; break;
+                                        case 'md': $icon = '📖'; break;
+                                        case 'json': $icon = '📊'; break;
+                                        case 'xml': $icon = '📰'; break;
+                                        default: $icon = '📄';
+                                    }
+                                } elseif (in_array($fileExt, $supportedImageTypes)) {
+                                    $icon = '🖼️';
+                                } elseif (in_array($fileExt, $supportedMediaTypes)) {
+                                    $icon = in_array($fileExt, ['mp4', 'webm', 'ogg']) ? '🎬' : '🎵';
+                                } elseif (in_array($fileExt, $supportedDocTypes)) {
+                                    $icon = '📕';
+                                } else {
+                                    $icon = '📦';
                                 }
                                 
                                 echo '<li class="file-item">';
                                 echo '<a href="file-viewer.php?file=' . urlencode($file) . '" class="file-link">';
                                 echo '<span class="file-icon">' . $icon . '</span>';
-                                echo '<span class="file-name">' . $fileName . '</span>';
+                                echo '<div class="file-info">';
+                                echo '<span class="file-name">' . htmlspecialchars($fileName) . '</span>';
+                                echo '<div class="file-meta">';
+                                echo '<span>' . strtoupper($fileExt) . '</span>';
+                                echo '<span>' . formatFileSize($fileSize) . '</span>';
+                                echo '</div>';
+                                echo '</div>';
                                 echo '</a>';
                                 echo '</li>';
                             }
@@ -498,55 +248,88 @@ if ($fileToView) {
                 </div>
             <?php endif; ?>
         </main>
+        
+        <?php include 'views/components/footer.php'; ?>
     </div>
     
+    <script src="/parker/assets/js/script.js"></script>
     <script>
-        // Basic syntax highlighting for better readability
+        // Enhance code display with line numbers
         document.addEventListener('DOMContentLoaded', function() {
             const codeBlock = document.querySelector('.code-block code');
             if (codeBlock) {
+                // Add line numbers
+                const lines = codeBlock.textContent.split('\n');
+                let numberedContent = '';
+                
+                lines.forEach((line, index) => {
+                    numberedContent += `<div class="code-line" data-line="${index + 1}">${line}</div>`;
+                });
+                
+                codeBlock.innerHTML = numberedContent;
+                
+                // Apply syntax highlighting based on file type
                 const fileExtension = '<?php echo $fileExtension; ?>';
                 applySyntaxHighlighting(codeBlock, fileExtension);
+            }
+            
+            // Initialize file search if we're on the file list page
+            const searchInput = document.getElementById('fileSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const fileItems = document.querySelectorAll('.file-item');
+                    
+                    fileItems.forEach(item => {
+                        const fileName = item.querySelector('.file-name').textContent.toLowerCase();
+                        item.style.display = fileName.includes(searchTerm) ? '' : 'none';
+                    });
+                });
+                
+                // Focus search on page load
+                setTimeout(() => searchInput.focus(), 100);
             }
         });
         
         function applySyntaxHighlighting(element, extension) {
-            let content = element.textContent;
+            // Apply language-specific syntax highlighting classes
+            // This is a simple implementation - could be enhanced with a proper syntax highlighting library
+            const codeLines = element.querySelectorAll('.code-line');
             
-            // Simple syntax highlighting patterns
-            if (extension === 'php') {
-                content = content.replace(/(&lt;\?php|\?&gt;)/g, '<span class="syntax-tag">$1</span>');
-                content = content.replace(/\b(function|class|if|else|foreach|for|while|return|echo|print)\b/g, '<span class="syntax-keyword">$1</span>');
-                content = content.replace(/(["'])((?:(?!\1)[^\\]|\\.)*)(\1)/g, '<span class="syntax-string">$1$2$3</span>');
-                content = content.replace(/(\/\*[\s\S]*?\*\/|\/\/.*$)/gm, '<span class="syntax-comment">$1</span>');
-            } else if (extension === 'html') {
-                content = content.replace(/(&lt;\/?\w+(?:\s+\w+(?:=(?:"[^"]*"|'[^']*'|[^\s&gt;]+))?)*\s*\/?\&gt;)/g, '<span class="syntax-tag">$1</span>');
-                content = content.replace(/(\w+)=(["'][^"']*["'])/g, '<span class="syntax-attribute">$1</span>=$2');
-            } else if (extension === 'css') {
-                content = content.replace(/([a-zA-Z-]+)(?=\s*:)/g, '<span class="syntax-attribute">$1</span>');
-                content = content.replace(/(["'][^"']*["'])/g, '<span class="syntax-string">$1</span>');
-                content = content.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="syntax-comment">$1</span>');
-            } else if (extension === 'js') {
-                content = content.replace(/\b(function|var|let|const|if|else|for|while|return|true|false|null|undefined)\b/g, '<span class="syntax-keyword">$1</span>');
-                content = content.replace(/(["'])((?:(?!\1)[^\\]|\\.)*)(\1)/g, '<span class="syntax-string">$1$2$3</span>');
-                content = content.replace(/(\/\*[\s\S]*?\*\/|\/\/.*$)/gm, '<span class="syntax-comment">$1</span>');
-                content = content.replace(/\b(\d+\.?\d*)\b/g, '<span class="syntax-number">$1</span>');
-            }
-            
-            element.innerHTML = content;
-        }
-        
-        // Mobile scroll optimization for code viewer
-        const fileContent = document.querySelector('.file-content');
-        if (fileContent) {
-            // Smooth scrolling for mobile
-            fileContent.style.webkitOverflowScrolling = 'touch';
-            
-            // Show scroll hint on mobile
-            if (window.innerWidth <= 768 && fileContent.scrollHeight > fileContent.clientHeight) {
-                console.log('File content is scrollable on mobile');
-            }
+            codeLines.forEach(line => {
+                let content = line.textContent;
+                
+                switch (extension) {
+                    case 'php':
+                        content = content.replace(/(&lt;\?php|\?&gt;)/g, '<span class="syntax-keyword">$1</span>');
+                        content = content.replace(/\b(function|class|if|else|foreach|for|while|return|echo|print|require|include)\b/g, '<span class="syntax-keyword">$1</span>');
+                        content = content.replace(/(["'])((?:(?!\1)[^\\]|\\.)*)(\1)/g, '<span class="syntax-string">$1$2$3</span>');
+                        content = content.replace(/(\/\/.*$|\/\*[\s\S]*?\*\/)/gm, '<span class="syntax-comment">$1</span>');
+                        break;
+                        
+                    case 'js':
+                        content = content.replace(/\b(function|var|let|const|if|else|for|while|return|true|false|null|undefined)\b/g, '<span class="syntax-keyword">$1</span>');
+                        content = content.replace(/(["'])((?:(?!\1)[^\\]|\\.)*)(\1)/g, '<span class="syntax-string">$1$2$3</span>');
+                        content = content.replace(/(\/\/.*$|\/\*[\s\S]*?\*\/)/gm, '<span class="syntax-comment">$1</span>');
+                        break;
+                        
+                    case 'html':
+                        content = content.replace(/(&lt;[\w\/].*?&gt;)/g, '<span class="syntax-tag">$1</span>');
+                        content = content.replace(/(["'])((?:(?!\1)[^\\]|\\.)*)(\1)/g, '<span class="syntax-string">$1$2$3</span>');
+                        content = content.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="syntax-comment">$1</span>');
+                        break;
+                        
+                    case 'css':
+                        content = content.replace(/([\w-]+)(?=\s*:)/g, '<span class="syntax-property">$1</span>');
+                        content = content.replace(/(#[a-fA-F0-9]{3,6})/g, '<span class="syntax-number">$1</span>');
+                        content = content.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="syntax-comment">$1</span>');
+                        break;
+                }
+                
+                line.innerHTML = content;
+            });
         }
     </script>
 </body>
+</html>
 </html>
