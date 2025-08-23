@@ -1,0 +1,15 @@
+{
+    "email": {
+        "enabled": false,
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 587,
+        "sender_email": "your_email@gmail.com",
+        "sender_password": "your_app_password",
+        "recipient_email": "recipient@gmail.com"
+    },
+    "check_interval_hours": 24,
+    "notification_settings": {
+        "console_alerts": true,
+        "email_alerts": false
+    }
+}
