@@ -1,0 +1,15 @@
+# Price Tracker Requirements
+# Python 3.7+ required
+
+# Web scraping
+requests==2.31.0
+beautifulsoup4==4.12.2
+
+# Scheduling
+schedule==1.2.0
+
+# Optional: For better HTML parsing
+lxml==4.9.3
+
+# Optional: For desktop notifications (cross-platform)
+plyer==2.1
