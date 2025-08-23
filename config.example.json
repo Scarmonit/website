@@ -1,0 +1,48 @@
+{
+  "_comment": "Personal Price Tracker Configuration",
+  "_instructions": "1. Copy this file to 'config.json', 2. Update with your settings, 3. For Gmail: Enable 2FA and create an App Password",
+  
+  "email": {
+    "enabled": true,
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+    "sender_email": "your-email@gmail.com",
+    "sender_password": "your-app-password-here",
+    "recipient_email": "your-email@gmail.com",
+    "_note": "For Gmail: Use App Password, not your regular password"
+  },
+  
+  "desktop_notifications": {
+    "enabled": true,
+    "timeout": 10,
+    "_note": "Desktop notifications will show for 10 seconds"
+  },
+  
+  "scraping": {
+    "check_interval_hours": 24,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "request_timeout": 10,
+    "max_retries": 3,
+    "delay_between_requests": 2,
+    "_note": "Be respectful with scraping intervals to avoid being blocked"
+  },
+  
+  "notifications": {
+    "cooldown_hours": 24,
+    "max_notifications_per_day": 10,
+    "_note": "Prevent notification spam with cooldown period"
+  },
+  
+  "database": {
+    "path": "price_tracker.db",
+    "cleanup_days": 90,
+    "_note": "Auto-cleanup price history older than 90 days"
+  },
+  
+  "logging": {
+    "level": "INFO",
+    "file": "price_tracker.log",
+    "max_size_mb": 10,
+    "_note": "Log levels: DEBUG, INFO, WARNING, ERROR"
+  }
+}
