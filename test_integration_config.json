@@ -1,1 +1,0 @@
-{"email": {"enabled": false}, "desktop_notifications": {"enabled": false}, "scraping": {"check_interval_hours": 24, "user_agent": "test"}, "notifications": {"cooldown_hours": 24}, "database": {"path": "test_integration.db"}}

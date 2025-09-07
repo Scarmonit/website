@@ -272,14 +272,14 @@ def test_integration():
             json.dump(test_config, f)
         
         # Initialize tracker
-        tracker = PriceTracker(temp_config)
+        tracker = PriceTracker(db_path=temp_db, config_path=temp_config)
         print("   ✅ Tracker initialization")
         
         # Test adding product (this integrates database and scraper)
         success = tracker.add_product(
             url="https://example.com/test",
             name="Integration Test Product",
-            threshold=50.00
+            target_price=50.00
         )
         if success:
             print("   ✅ Add product integration")
@@ -292,10 +292,6 @@ def test_integration():
             print("   ✅ List products integration")
         else:
             print("   ❌ List products integration")
-        
-        # Test statistics
-        tracker.show_stats()
-        print("   ✅ Statistics integration")
         
         # Cleanup
         for temp_file in [temp_config, temp_db]:

@@ -9,8 +9,8 @@ This module handles sending notifications when price thresholds are met:
 """
 
 import smtplib
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from typing import Dict, Optional
 import logging
@@ -141,7 +141,7 @@ class NotificationManager:
             recipient_email = self.email_config['recipient_email']
             
             # Create message
-            msg = MimeMultipart('alternative')
+            msg = MIMEMultipart('alternative')
             msg['From'] = sender_email
             msg['To'] = recipient_email
             msg['Subject'] = f"🎯 Price Drop Alert: {product_data['name']}"
@@ -193,8 +193,8 @@ Happy shopping! 🛍️
             """
             
             # Attach parts
-            msg.attach(MimeText(text_content, 'plain'))
-            msg.attach(MimeText(html_content, 'html'))
+            msg.attach(MIMEText(text_content, 'plain'))
+            msg.attach(MIMEText(html_content, 'html'))
             
             # Send email with timeout for better error handling
             print(f"📧 Sending email notification to {recipient_email}...")
