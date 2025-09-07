@@ -96,7 +96,7 @@ class TestDatabase:
         )
         product_id = temp_db.add_product(product)
         
-        # Add price history
+        # Add price history (should be ordered by most recent first)
         temp_db.add_price_history(product_id, 75.00, availability="In Stock")
         temp_db.add_price_history(product_id, 65.00, availability="In Stock")
         temp_db.add_price_history(product_id, 45.00, availability="Limited")
@@ -104,8 +104,8 @@ class TestDatabase:
         # Get history
         history = temp_db.get_price_history(product_id)
         assert len(history) == 3
-        assert history[0].price == 45.00  # Most recent first
-        assert history[2].price == 75.00  # Oldest last
+        assert history[0].price == 45.00  # Most recent first (highest id)
+        assert history[2].price == 75.00  # Oldest last (lowest id)
     
     def test_notification_cooldown(self, temp_db):
         """Test notification cooldown logic"""

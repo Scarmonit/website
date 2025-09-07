@@ -201,7 +201,7 @@ class Database:
             query += " AND checked_at >= ?"
             params.append(since)
         
-        query += " ORDER BY checked_at DESC LIMIT ?"
+        query += " ORDER BY checked_at DESC, id DESC LIMIT ?"
         params.append(limit)
         
         cursor.execute(query, params)

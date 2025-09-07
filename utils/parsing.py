@@ -47,8 +47,17 @@ def parse_currency(price_text: str) -> Optional[float]:
             # Multiple commas, must be thousands separator
             price_text = price_text.replace(',', '')
     elif ',' in price_text and '.' in price_text:
-        # Both present, comma is thousands separator
-        price_text = price_text.replace(',', '')
+        # Both present - need to determine which is decimal separator
+        comma_pos = price_text.rfind(',')
+        dot_pos = price_text.rfind('.')
+        
+        # If comma is after dot and close to end, it's likely European format
+        if comma_pos > dot_pos and len(price_text) - comma_pos <= 3:
+            # European format: "1.234,56" -> thousands=dot, decimal=comma
+            price_text = price_text.replace('.', '').replace(',', '.')
+        else:
+            # US format: "1,234.56" -> thousands=comma, decimal=dot
+            price_text = price_text.replace(',', '')
     elif ',' in price_text:
         # Comma as thousands separator
         price_text = price_text.replace(',', '')
