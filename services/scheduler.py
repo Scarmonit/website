@@ -4,14 +4,16 @@ Scheduler service for automated price checking
 
 import time
 import random
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, TYPE_CHECKING
 from configparser import ConfigParser
 from datetime import datetime
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from db.models import Database
+if TYPE_CHECKING:
+    from db.models import Database
+
 from services.notifier import NotificationService
 from services.logger import setup_logger
 from trackers import get_tracker
@@ -38,6 +40,7 @@ class PriceMonitor:
         Returns:
             New price if successful, None otherwise
         """
+        from db.models import Database
         db = Database()
         
         try:
@@ -104,6 +107,7 @@ class PriceMonitor:
         Returns:
             Dictionary with check statistics
         """
+        from db.models import Database
         db = Database()
         results = {
             'checked': 0,

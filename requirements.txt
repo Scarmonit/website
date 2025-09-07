@@ -8,6 +8,9 @@ beautifulsoup4==4.12.2
 # Scheduling
 schedule==1.2.0
 
+# Advanced scheduling (optional)
+apscheduler==3.10.4
+
 # Optional: For better HTML parsing
 lxml==4.9.3
 
