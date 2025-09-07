@@ -3,13 +3,15 @@ Notification service for price alerts
 """
 
 import smtplib
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
-from typing import Optional, Dict, Any
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from configparser import ConfigParser
 from datetime import datetime
 
-from db.models import Product, Notification
+if TYPE_CHECKING:
+    from db.models import Product, Notification
+
 from services.logger import setup_logger
 
 
@@ -32,7 +34,7 @@ class NotificationService:
             except ImportError:
                 self.logger.warning("Desktop notifications not available. Install plyer: pip install plyer")
     
-    def send_email(self, product: Product, old_price: float, new_price: float) -> bool:
+    def send_email(self, product: 'Product', old_price: float, new_price: float) -> bool:
         """
         Send email notification for price drop
         
@@ -57,7 +59,7 @@ class NotificationService:
             savings_percent = (savings / old_price) * 100
             
             # Create message
-            msg = MimeMultipart('alternative')
+            msg = MIMEMultipart('alternative')
             msg['From'] = sender_email
             msg['To'] = recipient_email
             msg['Subject'] = f"🎯 Price Drop Alert: {product.name[:50]}"
@@ -133,8 +135,8 @@ class NotificationService:
             """
             
             # Attach parts
-            msg.attach(MimeText(text, 'plain'))
-            msg.attach(MimeText(html, 'html'))
+            msg.attach(MIMEText(text, 'plain'))
+            msg.attach(MIMEText(html, 'html'))
             
             # Send email
             with smtplib.SMTP(smtp_server, smtp_port, timeout=30) as server:
@@ -149,7 +151,7 @@ class NotificationService:
             self.logger.error(f"Failed to send email: {e}")
             return False
     
-    def send_desktop(self, product: Product, old_price: float, new_price: float) -> bool:
+    def send_desktop(self, product: 'Product', old_price: float, new_price: float) -> bool:
         """
         Send desktop notification for price drop
         
@@ -188,7 +190,7 @@ class NotificationService:
             self.logger.error(f"Failed to send desktop notification: {e}")
             return False
     
-    def notify_price_drop(self, product: Product, old_price: float, new_price: float,
+    def notify_price_drop(self, product: 'Product', old_price: float, new_price: float,
                          db=None) -> Dict[str, bool]:
         """
         Send all configured notifications for a price drop
@@ -213,6 +215,7 @@ class NotificationService:
             
             # Log notification to database
             if db and results['email']:
+                from db.models import Notification
                 notification = Notification(
                     product_id=product.id,
                     type='email',
@@ -229,6 +232,7 @@ class NotificationService:
             
             # Log notification to database
             if db and results['desktop']:
+                from db.models import Notification
                 notification = Notification(
                     product_id=product.id,
                     type='desktop',
