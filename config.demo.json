@@ -1,0 +1,34 @@
+{
+  "email": {
+    "enabled": false,
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+    "sender_email": "your-email@gmail.com",
+    "sender_password": "your-app-password",
+    "recipient_email": "your-email@gmail.com"
+  },
+  "desktop_notifications": {
+    "enabled": true,
+    "timeout": 10
+  },
+  "scraping": {
+    "check_interval_hours": 24,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "request_timeout": 10,
+    "max_retries": 3,
+    "delay_between_requests": 2
+  },
+  "notifications": {
+    "cooldown_hours": 24,
+    "max_notifications_per_day": 10
+  },
+  "database": {
+    "path": "price_tracker.db",
+    "cleanup_days": 90
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "price_tracker.log",
+    "max_size_mb": 10
+  }
+}
