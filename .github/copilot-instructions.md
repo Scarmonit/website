@@ -7,10 +7,10 @@ Always reference these instructions first and fallback to search or bash command
 ## Working Effectively
 
 ### Bootstrap, Build, and Test the Repository
-- Install Python dependencies: `pip install -r requirements.txt` -- takes 5 seconds. NEVER CANCEL.
-- Run setup script: `python setup.py` -- takes 6 seconds. NEVER CANCEL. Set timeout to 30+ seconds.
+- Install Python dependencies: `pip install -r requirements.txt` -- takes 5 seconds. NEVER CANCEL. Set timeout to 60+ seconds.
+- Run setup script: `python setup.py` -- takes 17 seconds (interactive). NEVER CANCEL. Set timeout to 60+ seconds.
 - Run system tests: `python test_system.py` -- takes 0.2 seconds. NEVER CANCEL. Set timeout to 30+ seconds.
-- Run quick start: `python quick_start.py` -- takes 10 seconds (interactive). NEVER CANCEL. Set timeout to 60+ seconds.
+- Run quick start: `python quick_start.py` -- takes 38 seconds (interactive). NEVER CANCEL. Set timeout to 120+ seconds.
 
 ### Run the Application
 - ALWAYS run the bootstrapping steps first before using the application.
@@ -22,7 +22,7 @@ Always reference these instructions first and fallback to search or bash command
 
 ### Run Examples and Demos
 - ALWAYS run the bootstrapping steps first.
-- Full demo suite: `python examples.py` -- takes 15 seconds. NEVER CANCEL. Set timeout to 60+ seconds.
+- Full demo suite: `python examples.py` -- takes 24 seconds. NEVER CANCEL. Set timeout to 120+ seconds.
 - Example usage: `python example_usage.py` -- takes 3 seconds. NEVER CANCEL. Set timeout to 30+ seconds.
 
 ## Validation
@@ -38,6 +38,11 @@ Always reference these instructions first and fallback to search or bash command
   2. List products to verify: `python price_tracker.py list`
   3. Check prices (will fail for example.com but should not crash): `python price_tracker.py check`
   4. Verify no Python exceptions occur during basic operations
+
+### Interactive Command Handling
+- Both `python setup.py` and `python quick_start.py` are interactive and require user input
+- For automated testing, provide responses like `n{enter}` for setup and `y{enter}` for quick start
+- Use write_bash tool with appropriate delays when running these commands interactively
 
 ### Known Test Limitations
 - Network requests to external sites will fail in sandboxed environment - this is expected behavior
@@ -72,34 +77,40 @@ The following files are essential for development:
 #### Project Structure Output
 ```
 ls -la [repo-root]
-total 352
-drwxr-xr-x 9 runner docker  4096 Sep  7 19:55 .
-drwxr-xr-x 3 runner docker  4096 Sep  7 19:54 ..
-drwxr-xr-x 7 runner docker  4096 Sep  7 19:55 .git
--rw-r--r-- 1 runner docker 18181 Sep  7 19:55 README.md
-drwxr-xr-x 2 runner docker  4096 Sep  7 19:55 __pycache__
--rw-r--r-- 1 runner docker   824 Sep  7 19:55 config.example.ini
--rw-r--r-- 1 runner docker  1236 Sep  7 19:55 config.example.json
--rw-r--r-- 1 runner docker   740 Sep  7 19:55 config.json
--rw-r--r-- 1 runner docker  9901 Sep  7 19:55 database.py
-drwxr-xr-x 2 runner docker  4096 Sep  7 19:55 db
--rw-r--r-- 1 runner docker  7018 Sep  7 19:55 example_usage.py
--rw-r--r-- 1 runner docker  8755 Sep  7 19:55 examples.py
--rw-r--r-- 1 runner docker  6139 Sep  7 19:55 notifications.py
--rw-r--r-- 1 runner docker 16384 Sep  7 19:55 price_tracker.db
--rw-r--r-- 1 runner docker 15460 Sep  7 19:55 price_tracker.py
--rw-r--r-- 1 runner docker  8128 Sep  7 19:55 quick_start.py
--rw-r--r-- 1 runner docker   239 Sep  7 19:55 requirements.txt
--rw-r--r-- 1 runner docker  3594 Sep  7 19:55 scheduler.py
--rw-r--r-- 1 runner docker 11574 Sep  7 19:55 scraper.py
-drwxr-xr-x 2 runner docker  4096 Sep  7 19:55 services
--rw-r--r-- 1 runner docker  5297 Sep  7 19:55 setup.py
--rw-r--r-- 1 runner docker 12288 Sep  7 19:55 test_price_tracker.db
--rw-r--r-- 1 runner docker 12288 Sep  7 19:55 test_system.db
--rw-r--r-- 1 runner docker 10981 Sep  7 19:55 test_system.py
-drwxr-xr-x 3 runner docker  4096 Sep  7 19:55 tests
-drwxr-xr-x 2 runner docker  4096 Sep  7 19:55 trackers
-drwxr-xr-x 2 runner docker  4096 Sep  7 19:55 utils
+total 308
+drwxr-xr-x 10 runner runner  4096 Sep 11 00:03 .
+drwxr-xr-x  3 runner runner  4096 Sep 11 00:03 ..
+drwxrwxr-x  7 runner runner  4096 Sep 11 00:03 .git
+drwxrwxr-x  2 runner runner  4096 Sep 11 00:03 .github
+-rw-rw-r--  1 runner runner  2776 Sep 11 00:03 .gitignore
+-rw-rw-r--  1 runner runner  7711 Sep 11 00:03 README.md
+drwxrwxr-x  2 runner runner  4096 Sep 11 00:03 __pycache__
+-rw-rw-r--  1 runner runner   784 Sep 11 00:03 config.demo.json
+-rw-rw-r--  1 runner runner   964 Sep 11 00:03 config.example.ini
+-rw-rw-r--  1 runner runner  1444 Sep 11 00:03 config.example.json
+-rw-rw-r--  1 runner runner   394 Sep 11 00:03 config.json
+-rw-rw-r--  1 runner runner 13649 Sep 11 00:03 database.py
+drwxrwxr-x  2 runner runner  4096 Sep 11 00:03 db
+-rw-rw-r--  1 runner runner  3842 Sep 11 00:03 example_usage.py
+-rw-rw-r--  1 runner runner  9368 Sep 11 00:03 examples.py
+-rw-rw-r--  1 runner runner 14146 Sep 11 00:03 notifications.py
+-rw-rw-r--  1 runner runner 20480 Sep 11 00:03 price_history.db
+-rw-rw-r--  1 runner runner 24576 Sep 11 00:03 price_tracker.db
+-rw-rw-r--  1 runner runner 18939 Sep 11 00:03 price_tracker.py
+-rw-rw-r--  1 runner runner 10347 Sep 11 00:03 quick_start.py
+-rw-rw-r--  1 runner runner   253 Sep 11 00:03 requirements.txt
+-rw-rw-r--  1 runner runner  2397 Sep 11 00:03 scheduler.py
+-rw-rw-r--  1 runner runner 15363 Sep 11 00:03 scraper.py
+drwxrwxr-x  2 runner runner  4096 Sep 11 00:03 services
+-rw-rw-r--  1 runner runner  6221 Sep 11 00:03 setup.py
+-rw-rw-r--  1 runner runner 20480 Sep 11 00:03 test_config.json
+-rw-rw-r--  1 runner runner   224 Sep 11 00:03 test_integration_config.json
+-rw-rw-r--  1 runner runner 24576 Sep 11 00:03 test_price_tracker.db
+-rw-rw-r--  1 runner runner 24576 Sep 11 00:03 test_system.db
+-rw-rw-r--  1 runner runner 11576 Sep 11 00:03 test_system.py
+drwxrwxr-x  3 runner runner  4096 Sep 11 00:03 tests
+drwxrwxr-x  2 runner runner  4096 Sep 11 00:03 trackers
+drwxrwxr-x  2 runner runner  4096 Sep 11 00:03 utils
 ```
 
 #### Key Dependencies from requirements.txt
@@ -147,15 +158,16 @@ plyer==2.1
 ## Important Notes
 
 ### Timing Expectations and Timeouts
-- **Dependency installation**: 5 seconds (set timeout to 30+ seconds)
-- **Setup script**: 6 seconds (set timeout to 60+ seconds) 
+- **Dependency installation**: 5 seconds (set timeout to 60+ seconds)
+- **Setup script**: 17 seconds (set timeout to 60+ seconds) 
 - **System tests**: 0.2 seconds (set timeout to 30+ seconds)
+- **Quick start (interactive)**: 38 seconds (set timeout to 120+ seconds)
 - **Price checking**: 2-3 seconds per product (set timeout to 60+ seconds)
-- **Example demos**: 3-15 seconds (set timeout to 60+ seconds)
+- **Example demos**: 3-24 seconds (set timeout to 120+ seconds)
 
 ### Critical Reminders
 - **NEVER CANCEL** any build, test, or example command - they complete quickly
-- Always set appropriate timeouts (30-60 seconds) even for fast operations
+- Always set appropriate timeouts (60-120 seconds) for all operations, even fast ones
 - Network operations will fail in sandboxed environment - this is expected behavior
 - Database and file operations work normally and should be tested thoroughly
 
@@ -163,6 +175,12 @@ plyer==2.1
 - This repository has no .github/workflows directory
 - No automated CI builds to consider
 - Manual testing is the primary validation method
+
+### Unit Tests and Additional Testing
+- Unit tests exist in the `tests/` directory but require pytest which is not in requirements.txt
+- Tests use pytest framework: `tests/test_models.py`, `tests/test_parsing.py`
+- Primary testing method is the system test suite: `python test_system.py`
+- Do not attempt to run pytest-based unit tests unless pytest is explicitly installed
 
 ### Known Issues and Workarounds
 - Desktop notifications fail with "Permission denied" in sandboxed environment - expected
